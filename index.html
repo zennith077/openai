@@ -1470,7 +1470,7 @@
 // ══════════════════════════════════════════
 // Atau set lewat halaman admin.html (lebih mudah)
 const _appKeys = JSON.parse(localStorage.getItem('nc_app_keys') || '{}');
-const OPENAI_KEY    = _appKeys.openai || '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';   // ← line 1468: OpenAI key
+const OPENAI_KEY    = _appKeys.openai || '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';   // ← line 1468: OpenAI key
 const SB_URL        = _appKeys.sbUrl  || 'https://hlayyekwhahgdftvodbh.supabase.co';     // ← line 1469: Supabase URL
 const SB_KEY        = _appKeys.sbKey  || 'sb_publishable_7BIpp44f-1f0GWcftvS8Lg_CCXPHYG7';// ← line 1470: Supabase anon key
 
@@ -1903,7 +1903,7 @@ async function sendMessage() {
 
   try {
     let aiText = '';
-    if (OPENAI_KEY && OPENAI_KEY !== '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') {
+    if (OPENAI_KEY && OPENAI_KEY !== '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') {
       const res = await fetch('https://api.openai.com/v1/chat/completions',{
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},
