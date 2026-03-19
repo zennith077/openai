@@ -1,0 +1,2538 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NeuralChat — AI Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #060810;
+    --bg2: #0d1117;
+    --bg3: #111827;
+    --surface: #161d2e;
+    --surface2: #1e2a40;
+    --border: #1f2d45;
+    --accent: #4f8ef7;
+    --accent2: #7c5ef5;
+    --accent-glow: rgba(79,142,247,0.18);
+    --text: #e8edf5;
+    --text2: #8b9ab5;
+    --text3: #4a5a73;
+    --success: #22d3a0;
+    --danger: #f7615a;
+    --warn: #f5a623;
+    --premium: #f5c842;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --font-head: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --sidebar-w: 280px;
+    --transition: 0.22s cubic-bezier(.4,0,.2,1);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow: hidden;
+  }
+  body.auth-mode { overflow: auto; }
+
+  /* Auth wrap scrollable */
+  #auth-wrap {
+    overflow-y: visible;
+  }
+
+  /* ─── SCROLLBAR ─── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+  /* ─── NOISE OVERLAY ─── */
+  body::before {
+    content:''; position:fixed; inset:0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events:none; z-index:9999; opacity:.4;
+  }
+
+  /* ══════════════════════════════
+     AUTH PAGES
+  ══════════════════════════════ */
+  #auth-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    position: relative;
+    background: var(--bg);
+    overflow-y: auto;
+    padding: 40px 16px;
+  }
+
+  #auth-wrap::after {
+    content:'';
+    position:absolute;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(79,142,247,.12) 0%, transparent 70%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -60%);
+    pointer-events: none;
+  }
+
+  .auth-card {
+    position: relative;
+    width: 460px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 44px 40px 36px;
+    z-index:1;
+    box-shadow: 0 32px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.03);
+    animation: cardIn .5s cubic-bezier(.22,1,.36,1) both;
+  }
+
+  @keyframes cardIn {
+    from { opacity:0; transform:translateY(28px) scale(.97); }
+    to   { opacity:1; transform:none; }
+  }
+
+  /* Notification banner */
+  .notif-banner {
+    background: linear-gradient(135deg, rgba(79,142,247,.15), rgba(124,94,245,.12));
+    border: 1px solid rgba(79,142,247,.3);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px 12px 16px;
+    font-size: .82rem;
+    color: var(--text2);
+    line-height: 1.5;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    position: relative;
+  }
+  .notif-banner .notif-icon { color: var(--accent); font-size:1rem; flex-shrink:0; margin-top:1px; }
+  .notif-banner .close-notif {
+    position:absolute; top:8px; right:10px;
+    background:none; border:none; color:var(--text3);
+    cursor:pointer; font-size:1rem; line-height:1;
+    transition: color .2s;
+  }
+  .notif-banner .close-notif:hover { color:var(--text); }
+
+  /* Logo */
+  .auth-logo {
+    display: flex; align-items: center; gap: 11px;
+    margin-bottom: 28px;
+  }
+  .logo-icon {
+    width: 42px; height: 42px;
+    position: relative;
+  }
+  .logo-icon svg { width:100%; height:100%; }
+  .logo-text { font-family: var(--font-head); font-weight:800; font-size:1.35rem; letter-spacing:-.02em; }
+  .logo-text span { color: var(--accent); }
+
+  .auth-title { font-family:var(--font-head); font-weight:700; font-size:1.5rem; margin-bottom:6px; }
+  .auth-sub { font-size:.875rem; color:var(--text2); margin-bottom:28px; }
+
+  .form-grid { display:grid; gap:14px; }
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+
+  .field { display:flex; flex-direction:column; gap:6px; }
+  .field label { font-size:.78rem; font-weight:500; color:var(--text2); letter-spacing:.04em; text-transform:uppercase; }
+  .field input, .field select {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 11px 14px;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size:.9rem;
+    outline:none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .field input:focus, .field select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  .field input::placeholder { color: var(--text3); }
+
+  /* Captcha */
+  .captcha-box {
+    display:flex; gap:10px; align-items:center;
+  }
+  .captcha-display {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 18px;
+    font-family: 'Courier New', monospace;
+    font-size:1.1rem;
+    font-weight:700;
+    letter-spacing:.25em;
+    color: var(--accent);
+    white-space:nowrap;
+    user-select:none;
+    position:relative;
+    overflow:hidden;
+  }
+  .captcha-display::after {
+    content:'';
+    position:absolute; inset:0;
+    background: repeating-linear-gradient(
+      45deg,
+      transparent,transparent 3px,
+      rgba(255,255,255,.02) 3px,rgba(255,255,255,.02) 4px
+    );
+  }
+  .captcha-refresh {
+    background:none; border:1px solid var(--border); border-radius:var(--radius-sm);
+    color:var(--text2); cursor:pointer; padding:10px 12px;
+    font-size:.9rem; transition:all .2s;
+  }
+  .captcha-refresh:hover { border-color:var(--accent); color:var(--accent); }
+  .captcha-input { flex:1; }
+  .captcha-input input { width:100%; }
+
+  .btn-primary {
+    width:100%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color:#fff;
+    border:none;
+    border-radius: var(--radius-sm);
+    padding: 13px;
+    font-family: var(--font-head);
+    font-size:.95rem;
+    font-weight:600;
+    cursor:pointer;
+    margin-top:6px;
+    transition: opacity .2s, transform .15s;
+    position:relative; overflow:hidden;
+  }
+  .btn-primary::after {
+    content:'';
+    position:absolute; inset:0;
+    background: linear-gradient(135deg,rgba(255,255,255,.1),transparent);
+  }
+  .btn-primary:hover { opacity:.9; transform:translateY(-1px); }
+  .btn-primary:active { transform:translateY(0); }
+
+  .auth-switch { text-align:center; margin-top:18px; font-size:.85rem; color:var(--text2); }
+  .auth-switch a { color:var(--accent); cursor:pointer; text-decoration:none; font-weight:500; }
+  .auth-switch a:hover { text-decoration:underline; }
+
+  .field-error { font-size:.78rem; color:var(--danger); margin-top:3px; }
+
+  /* ══════════════════════════════
+     MAIN APP
+  ══════════════════════════════ */
+  #app {
+    display:none;
+    height:100vh;
+    position:relative;
+    overflow:hidden;
+  }
+
+  /* ─── SIDEBAR ─── */
+  #sidebar {
+    position:fixed; top:0; left:0;
+    width: var(--sidebar-w);
+    height:100vh;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display:flex; flex-direction:column;
+    z-index:200;
+    transform: translateX(0);
+    transition: transform var(--transition);
+  }
+  #sidebar.closed { transform: translateX(calc(-1 * var(--sidebar-w))); }
+
+  .sidebar-head {
+    padding: 20px 18px 16px;
+    display:flex; align-items:center; gap:10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-logo { font-family:var(--font-head); font-weight:800; font-size:1.1rem; flex:1; }
+  .sidebar-logo span { color:var(--accent); }
+
+  #sidebar-close {
+    background:none; border:none; color:var(--text2); cursor:pointer;
+    font-size:1.1rem; padding:6px; border-radius:6px;
+    transition: background .2s, color .2s;
+  }
+  #sidebar-close:hover { background:var(--surface); color:var(--text); }
+
+  .sidebar-new-chat {
+    margin: 14px 14px 10px;
+    background: linear-gradient(135deg,rgba(79,142,247,.15),rgba(124,94,245,.1));
+    border: 1px solid rgba(79,142,247,.25);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    color: var(--accent);
+    font-family: var(--font-body);
+    font-size:.85rem; font-weight:500;
+    cursor:pointer; display:flex; align-items:center; gap:8px;
+    transition: background .2s;
+  }
+  .sidebar-new-chat:hover { background:rgba(79,142,247,.2); }
+
+  .sidebar-section { padding: 0 8px; margin-bottom:6px; }
+  .sidebar-section-title {
+    font-size:.7rem; font-weight:600; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--text3);
+    padding: 10px 10px 6px;
+  }
+
+  .chat-history-list { flex:1; overflow-y:auto; padding:0 8px 8px; }
+  .history-item {
+    padding: 9px 12px;
+    border-radius: var(--radius-sm);
+    font-size:.84rem; color:var(--text2);
+    cursor:pointer; display:flex; align-items:center; gap:9px;
+    transition: background .15s, color .15s;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .history-item:hover { background:var(--surface); color:var(--text); }
+  .history-item .hi-icon { color:var(--text3); font-size:.85rem; flex-shrink:0; }
+
+  .sidebar-nav { padding: 8px; border-top: 1px solid var(--border); }
+  .nav-item {
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    font-size:.875rem; color:var(--text2);
+    cursor:pointer; display:flex; align-items:center; gap:10px;
+    transition: background .15s, color .15s;
+  }
+  .nav-item:hover { background:var(--surface); color:var(--text); }
+  .nav-item .nav-icon { width:18px; text-align:center; flex-shrink:0; }
+  .nav-item.premium-item { color: var(--premium); }
+  .nav-item.premium-item:hover { background:rgba(245,200,66,.08); }
+
+  /* limit bar */
+  .limit-bar-wrap { padding: 12px 14px; border-top:1px solid var(--border); }
+  .limit-bar-label {
+    font-size:.75rem; color:var(--text3); margin-bottom:7px;
+    display:flex; justify-content:space-between;
+  }
+  .limit-bar-label span:last-child { color:var(--text2); }
+  .limit-bar-track {
+    height:5px; background:var(--border); border-radius:99px; overflow:hidden;
+  }
+  .limit-bar-fill {
+    height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2));
+    border-radius:99px; transition:width .4s ease;
+  }
+
+  /* ─── MAIN CONTENT ─── */
+  #main {
+    height:100vh;
+    display:flex; flex-direction:column;
+    margin-left: var(--sidebar-w);
+    transition: margin-left var(--transition);
+    position:relative;
+  }
+  #main.sidebar-closed { margin-left:0; }
+
+  /* top bar */
+  #topbar {
+    height:60px; display:flex; align-items:center;
+    padding:0 20px; gap:14px;
+    border-bottom:1px solid var(--border);
+    background:var(--bg2);
+    flex-shrink:0; z-index:100;
+  }
+  #sidebar-toggle {
+    background:none; border:none; color:var(--text2); cursor:pointer;
+    font-size:1.1rem; padding:8px; border-radius:8px;
+    transition:background .2s, color .2s;
+  }
+  #sidebar-toggle:hover { background:var(--surface); color:var(--text); }
+
+  .topbar-title { font-family:var(--font-head); font-weight:700; font-size:1rem; flex:1; }
+  .topbar-model {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:99px; padding:5px 14px;
+    font-size:.78rem; color:var(--text2); display:flex; align-items:center; gap:6px;
+  }
+  .model-dot { width:7px; height:7px; border-radius:50%; background:var(--success); }
+
+  /* ─── CHAT AREA ─── */
+  #chat-area {
+    flex:1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 32px 24px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    scroll-behavior: smooth;
+  }
+
+  /* Typewriter cursor blinking */
+  @keyframes blink {
+    0%,100% { opacity:1; }
+    50%      { opacity:0; }
+  }
+  .typewriter-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: var(--accent);
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    border-radius: 1px;
+    animation: blink .6s step-end infinite;
+  }
+
+  /* Smooth text reveal for AI messages */
+  .msg-bubble.typing-reveal {
+    opacity: 1;
+  }
+
+  /* Welcome */
+  #welcome-screen {
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    flex:1; text-align:center; padding:40px 20px;
+    animation: fadeUp .6s ease both;
+  }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:none} }
+
+  .welcome-logo {
+    width:70px; height:70px; margin-bottom:20px;
+    animation: floatLogo 4s ease-in-out infinite;
+  }
+  @keyframes floatLogo {
+    0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)}
+  }
+
+  .welcome-title { font-family:var(--font-head); font-size:2rem; font-weight:800; margin-bottom:10px; }
+  .welcome-title span { background:linear-gradient(135deg,var(--accent),var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .welcome-sub { color:var(--text2); font-size:.95rem; max-width:400px; line-height:1.6; }
+
+  .suggestion-chips { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:28px; }
+  .chip {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:99px; padding:8px 16px;
+    font-size:.82rem; color:var(--text2); cursor:pointer;
+    transition:all .2s;
+  }
+  .chip:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-glow); }
+
+  /* Messages */
+  .msg { display:flex; gap:12px; animation:msgIn .3s ease both; }
+  @keyframes msgIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+
+  .msg.user { flex-direction:row-reverse; }
+  .msg-avatar {
+    width:34px; height:34px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:.8rem;
+  }
+  .msg.ai .msg-avatar {
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+  }
+  .msg.user .msg-avatar {
+    background:var(--surface2); font-size:.9rem; color:var(--text);
+    font-family:var(--font-head); font-weight:700;
+  }
+  .msg-bubble {
+    max-width:72%; padding:13px 16px;
+    border-radius:16px; font-size:.9rem; line-height:1.65;
+  }
+  .msg.ai .msg-bubble {
+    background:var(--surface); border:1px solid var(--border);
+    border-top-left-radius:4px; color:var(--text);
+  }
+  .msg.user .msg-bubble {
+    background:linear-gradient(135deg,rgba(79,142,247,.2),rgba(124,94,245,.15));
+    border:1px solid rgba(79,142,247,.25);
+    border-top-right-radius:4px; color:var(--text);
+  }
+
+  .typing-dots { display:flex; gap:5px; padding:4px 0; }
+  .typing-dots span {
+    width:7px; height:7px; border-radius:50%; background:var(--text3);
+    animation:dot-pulse 1.4s infinite both;
+  }
+  .typing-dots span:nth-child(2){animation-delay:.2s}
+  .typing-dots span:nth-child(3){animation-delay:.4s}
+  @keyframes dot-pulse {
+    0%,80%,100%{transform:scale(.7);opacity:.4}
+    40%{transform:scale(1);opacity:1}
+  }
+
+  /* ─── INPUT AREA ─── */
+  #input-area {
+    padding:18px 24px 22px;
+    border-top:1px solid var(--border);
+    background:var(--bg2);
+    flex-shrink:0;
+  }
+  .input-wrap {
+    display:flex; align-items:flex-end; gap:10px;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:14px; padding:10px 12px;
+    transition:border-color .2s, box-shadow .2s;
+  }
+  .input-wrap:focus-within {
+    border-color:var(--accent);
+    box-shadow:0 0 0 3px var(--accent-glow);
+  }
+  #msg-input {
+    flex:1; background:none; border:none; color:var(--text);
+    font-family:var(--font-body); font-size:.9rem;
+    resize:none; outline:none; max-height:150px; min-height:22px;
+    line-height:1.5;
+  }
+  #msg-input::placeholder { color:var(--text3); }
+  #send-btn {
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border:none; border-radius:10px;
+    width:38px; height:38px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; flex-shrink:0;
+    transition:opacity .2s, transform .15s;
+  }
+  #send-btn:hover { opacity:.85; transform:scale(1.05); }
+  #send-btn:disabled { opacity:.35; cursor:not-allowed; transform:none; }
+  #send-btn svg { width:16px; height:16px; fill:#fff; }
+
+  .input-hint { font-size:.75rem; color:var(--text3); margin-top:8px; text-align:center; }
+
+  /* ─── LIMIT REACHED ─── */
+  #limit-reached {
+    display:none;
+    padding:18px 24px 22px;
+    border-top:1px solid var(--border);
+    background:var(--bg2);
+  }
+  .limit-notice {
+    background:linear-gradient(135deg,rgba(247,97,90,.1),rgba(245,166,35,.08));
+    border:1px solid rgba(247,97,90,.3);
+    border-radius:var(--radius);
+    padding:18px 20px;
+    display:flex; flex-direction:column; align-items:center; gap:12px;
+    text-align:center;
+  }
+  .limit-notice-icon { font-size:2rem; }
+  .limit-notice h3 { font-family:var(--font-head); font-size:1rem; color:var(--danger); }
+  .limit-notice p { font-size:.85rem; color:var(--text2); line-height:1.5; }
+  .limit-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  .btn-subscribe {
+    background:linear-gradient(135deg,var(--premium),#f5a623);
+    border:none; border-radius:var(--radius-sm);
+    padding:10px 20px; color:#1a1000;
+    font-family:var(--font-head); font-weight:700; font-size:.875rem;
+    cursor:pointer; transition:opacity .2s, transform .15s;
+  }
+  .btn-subscribe:hover { opacity:.9; transform:translateY(-1px); }
+  .btn-request {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius-sm); padding:10px 20px;
+    color:var(--text2); font-family:var(--font-body); font-size:.875rem;
+    cursor:pointer; transition:background .2s;
+  }
+  .btn-request:hover { background:var(--surface2); color:var(--text); }
+
+  /* ─── WELCOME TOAST (first login) ─── */
+  #welcome-toast {
+    position:fixed; top:0; left:0; right:0; bottom:0;
+    background:rgba(6,8,16,.8);
+    display:flex; align-items:center; justify-content:center;
+    z-index:1000;
+    backdrop-filter:blur(6px);
+    animation:fadeIn .3s ease;
+  }
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .toast-card {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:40px 36px;
+    width:420px;
+    text-align:center;
+    animation:toastIn .4s cubic-bezier(.22,1,.36,1) both;
+    box-shadow:0 40px 80px rgba(0,0,0,.6);
+    position:relative;
+  }
+  @keyframes toastIn{from{opacity:0;transform:scale(.9) translateY(20px)}to{opacity:1;transform:none}}
+  .toast-icon {
+    width:60px; height:60px; margin:0 auto 18px;
+    background:linear-gradient(135deg,rgba(247,97,90,.2),rgba(245,166,35,.15));
+    border:1px solid rgba(247,97,90,.3);
+    border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:1.6rem;
+  }
+  .toast-card h2 { font-family:var(--font-head); font-size:1.3rem; margin-bottom:10px; }
+  .toast-card p { font-size:.875rem; color:var(--text2); line-height:1.65; margin-bottom:24px; }
+  .toast-rules { text-align:left; background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-bottom:22px; }
+  .toast-rules li { font-size:.825rem; color:var(--text2); margin-bottom:7px; padding-left:4px; list-style:none; display:flex; gap:8px; }
+  .toast-rules li::before { content:'→'; color:var(--accent); flex-shrink:0; }
+  .btn-got-it {
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border:none; border-radius:var(--radius-sm);
+    padding:12px 32px; color:#fff;
+    font-family:var(--font-head); font-weight:600; font-size:.95rem;
+    cursor:pointer; transition:opacity .2s;
+  }
+  .btn-got-it:hover { opacity:.88; }
+
+  /* ─── PAYMENT MODAL ─── */
+  #payment-modal {
+    display:none;
+    position:fixed; inset:0;
+    background:rgba(6,8,16,.82);
+    z-index:500;
+    align-items:center; justify-content:center;
+    backdrop-filter:blur(6px);
+  }
+  #payment-modal.open { display:flex; animation:fadeIn .25s ease; }
+  .payment-card {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:20px;
+    width:480px;
+    overflow:hidden;
+    box-shadow:0 40px 80px rgba(0,0,0,.6);
+    animation:toastIn .35s cubic-bezier(.22,1,.36,1) both;
+  }
+  .payment-header {
+    background:linear-gradient(135deg,rgba(245,200,66,.15),rgba(245,166,35,.1));
+    border-bottom:1px solid rgba(245,200,66,.2);
+    padding:24px 28px;
+    display:flex; align-items:center; gap:14px;
+  }
+  .payment-header h2 { font-family:var(--font-head); font-size:1.2rem; color:var(--premium); }
+  .payment-header p { font-size:.82rem; color:var(--text2); margin-top:3px; }
+  .payment-banner {
+    width:100%; height:180px; object-fit:cover; display:block;
+    background:linear-gradient(135deg,var(--bg3),var(--surface2));
+    position:relative; overflow:hidden;
+  }
+  .payment-banner-inner {
+    width:100%; height:180px;
+    background:linear-gradient(135deg,#0d1117,#161d2e);
+    display:flex; align-items:center; justify-content:center;
+    position:relative; overflow:hidden;
+  }
+  .payment-banner-inner svg { width:100%; height:100%; position:absolute; inset:0; }
+  .payment-banner-text { position:relative; text-align:center; z-index:1; }
+  .payment-banner-text h3 { font-family:var(--font-head); font-size:1.6rem; font-weight:800; color:var(--premium); }
+  .payment-banner-text p { font-size:.8rem; color:var(--text2); margin-top:4px; }
+  .payment-body { padding:24px 28px; }
+  .plan-options { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px; }
+  .plan-opt {
+    border:2px solid var(--border); border-radius:12px; padding:14px;
+    cursor:pointer; transition:all .2s; text-align:center;
+  }
+  .plan-opt:hover { border-color:var(--premium); }
+  .plan-opt.selected { border-color:var(--premium); background:rgba(245,200,66,.06); }
+  .plan-opt .plan-name { font-family:var(--font-head); font-size:.9rem; font-weight:700; }
+  .plan-opt .plan-price { font-size:1.3rem; font-weight:800; color:var(--premium); margin:4px 0; }
+  .plan-opt .plan-price span { font-size:.75rem; color:var(--text3); font-weight:400; }
+  .plan-opt .plan-desc { font-size:.74rem; color:var(--text2); }
+  .payment-note { font-size:.8rem; color:var(--text2); line-height:1.5; margin-bottom:20px; }
+  .payment-actions { display:flex; gap:10px; }
+  .btn-pay {
+    flex:1;
+    background:linear-gradient(135deg,var(--premium),#f5a623);
+    border:none; border-radius:var(--radius-sm);
+    padding:12px; color:#1a1000;
+    font-family:var(--font-head); font-weight:700;
+    cursor:pointer; font-size:.9rem;
+    transition:opacity .2s;
+  }
+  .btn-pay:hover { opacity:.88; }
+  .btn-cancel-pay {
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:var(--radius-sm); padding:12px 20px;
+    color:var(--text2); cursor:pointer; font-size:.9rem;
+    transition:background .2s;
+  }
+  .btn-cancel-pay:hover { background:var(--bg3); }
+
+  /* ─── PANEL MODALS (profile/contact/report) ─── */
+  .panel-modal {
+    display:none;
+    position:fixed; inset:0;
+    background:rgba(6,8,16,.8);
+    z-index:400;
+    align-items:center; justify-content:center;
+    backdrop-filter:blur(5px);
+  }
+  .panel-modal.open { display:flex; animation:fadeIn .25s ease; }
+  .panel-card {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:20px;
+    width:400px;
+    padding:32px 28px;
+    box-shadow:0 32px 80px rgba(0,0,0,.55);
+    animation:toastIn .35s cubic-bezier(.22,1,.36,1) both;
+    position:relative;
+  }
+  .panel-card h2 { font-family:var(--font-head); font-weight:700; font-size:1.15rem; margin-bottom:4px; }
+  .panel-card .panel-sub { font-size:.82rem; color:var(--text2); margin-bottom:22px; }
+  .panel-close {
+    position:absolute; top:18px; right:18px;
+    background:none; border:none; color:var(--text3);
+    cursor:pointer; font-size:1.1rem;
+    transition:color .2s;
+  }
+  .panel-close:hover { color:var(--text); }
+  .info-row { display:flex; gap:10px; margin-bottom:12px; align-items:center; }
+  .info-row .info-label { font-size:.8rem; color:var(--text3); width:90px; flex-shrink:0; }
+  .info-row .info-value { font-size:.9rem; color:var(--text); }
+  .info-sep { border:none; border-top:1px solid var(--border); margin:16px 0; }
+  .panel-textarea {
+    width:100%; background:var(--bg2); border:1px solid var(--border);
+    border-radius:var(--radius-sm); padding:12px 14px; color:var(--text);
+    font-family:var(--font-body); font-size:.875rem; resize:none;
+    outline:none; min-height:100px;
+    transition:border-color .2s, box-shadow .2s;
+  }
+  .panel-textarea:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow); }
+  .btn-submit-panel {
+    width:100%; margin-top:14px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border:none; border-radius:var(--radius-sm);
+    padding:12px; color:#fff;
+    font-family:var(--font-head); font-weight:600; font-size:.9rem;
+    cursor:pointer; transition:opacity .2s;
+  }
+  .btn-submit-panel:hover { opacity:.88; }
+
+  /* ══════════════════════════════
+     PSYCHOLOGY TEST PAGE
+  ══════════════════════════════ */
+  #psycho-page {
+    display: none;
+    height: 100vh;
+    flex-direction: column;
+    margin-left: var(--sidebar-w);
+    transition: margin-left var(--transition);
+    position: relative;
+    overflow: hidden;
+  }
+  #psycho-page.sidebar-closed { margin-left: 0; }
+  #psycho-page.active { display: flex; }
+
+  .psycho-topbar {
+    height: 60px; display: flex; align-items: center;
+    padding: 0 20px; gap: 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2); flex-shrink: 0;
+  }
+  .psycho-topbar-title {
+    font-family: var(--font-head); font-weight: 700; font-size: 1rem; flex: 1;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .psycho-badge {
+    background: linear-gradient(135deg, rgba(34,211,160,.2), rgba(79,142,247,.15));
+    border: 1px solid rgba(34,211,160,.35);
+    color: var(--success); font-size: .7rem; font-weight: 600;
+    padding: 3px 9px; border-radius: 99px; letter-spacing: .04em;
+  }
+  .psycho-progress-wrap {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .psycho-progress-bar {
+    width: 120px; height: 5px;
+    background: var(--border); border-radius: 99px; overflow: hidden;
+  }
+  .psycho-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--success), var(--accent));
+    border-radius: 99px; transition: width .4s ease;
+  }
+  .psycho-progress-label { font-size: .78rem; color: var(--text2); white-space: nowrap; }
+
+  .psycho-chat-area {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    padding: 28px 24px 10px;
+    display: flex; flex-direction: column; gap: 20px;
+    scroll-behavior: smooth;
+  }
+
+  /* Psycho answer buttons */
+  .psycho-choices {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 4px 0 4px 46px;
+    animation: msgIn .35s ease both;
+  }
+  .psycho-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 16px;
+    color: var(--text2); font-family: var(--font-body); font-size: .875rem;
+    cursor: pointer; text-align: left;
+    transition: all .18s; display: flex; align-items: center; gap: 10px;
+  }
+  .psycho-btn:hover {
+    border-color: var(--accent); color: var(--text);
+    background: var(--accent-glow); transform: translateX(4px);
+  }
+  .psycho-btn.selected {
+    border-color: var(--success); color: var(--success);
+    background: rgba(34,211,160,.08); pointer-events: none;
+  }
+  .psycho-btn.disabled { pointer-events: none; opacity: .45; }
+  .psycho-btn-letter {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: var(--bg2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .7rem; font-weight: 700; color: var(--accent); flex-shrink: 0;
+  }
+
+  /* Free text input for last question */
+  .psycho-input-wrap {
+    padding: 16px 24px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--bg2); flex-shrink: 0;
+  }
+  .psycho-input-inner {
+    display: flex; align-items: flex-end; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 10px 12px;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .psycho-input-inner:focus-within {
+    border-color: var(--success); box-shadow: 0 0 0 3px rgba(34,211,160,.12);
+  }
+  #psycho-text-input {
+    flex: 1; background: none; border: none; color: var(--text);
+    font-family: var(--font-body); font-size: .9rem;
+    resize: none; outline: none; max-height: 100px; min-height: 22px; line-height: 1.5;
+  }
+  #psycho-text-input::placeholder { color: var(--text3); }
+  #psycho-send-btn {
+    background: linear-gradient(135deg, var(--success), var(--accent));
+    border: none; border-radius: 10px;
+    width: 38px; height: 38px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0; transition: opacity .2s, transform .15s;
+  }
+  #psycho-send-btn:hover { opacity: .85; transform: scale(1.05); }
+  #psycho-send-btn svg { width: 16px; height: 16px; fill: #fff; }
+
+  /* Result card */
+  .psycho-result-card {
+    background: linear-gradient(135deg, rgba(34,211,160,.1), rgba(79,142,247,.08));
+    border: 1px solid rgba(34,211,160,.25);
+    border-radius: 16px; padding: 24px 22px;
+    margin: 0 0 8px;
+    animation: msgIn .5s ease both;
+  }
+  .psycho-result-title {
+    font-family: var(--font-head); font-size: 1.05rem; font-weight: 700;
+    color: var(--success); margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .psycho-result-body { font-size: .875rem; color: var(--text2); line-height: 1.7; }
+  .psycho-result-body strong { color: var(--text); }
+  .psycho-restart-btn {
+    margin-top: 16px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 18px;
+    color: var(--text2); font-family: var(--font-body); font-size: .875rem;
+    cursor: pointer; transition: background .2s;
+  }
+  .psycho-restart-btn:hover { background: var(--surface); color: var(--text); }
+
+  /* ══════════════════════════════
+     FLOATING AD BANNER
+  ══════════════════════════════ */
+  #float-ad {
+    position: fixed; bottom: 90px; right: 20px;
+    width: 280px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    z-index: 300;
+    box-shadow: 0 8px 32px rgba(0,0,0,.45);
+    animation: adSlideIn .5s cubic-bezier(.22,1,.36,1) both;
+    animation-delay: 3s;
+    opacity: 0;
+  }
+  @keyframes adSlideIn {
+    from { opacity:0; transform: translateX(40px) scale(.95); }
+    to   { opacity:1; transform: none; }
+  }
+  #float-ad.hidden { display: none; }
+  .ad-close {
+    position: absolute; top: 8px; right: 10px;
+    background: none; border: none; color: var(--text3);
+    cursor: pointer; font-size: .9rem; line-height: 1;
+    transition: color .2s; padding: 2px 4px;
+  }
+  .ad-close:hover { color: var(--text); }
+  .ad-label {
+    font-size: .65rem; color: var(--text3); letter-spacing: .06em;
+    text-transform: uppercase; margin-bottom: 8px;
+  }
+  .ad-body { font-size: .82rem; color: var(--text2); line-height: 1.5; }
+  .ad-body strong { color: var(--text); }
+  .ad-cta {
+    margin-top: 10px; width: 100%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: 8px; padding: 9px;
+    color: #fff; font-family: var(--font-head); font-size: .82rem; font-weight: 600;
+    cursor: pointer; transition: opacity .2s;
+  }
+  .ad-cta:hover { opacity: .85; }
+
+  /* ══════════════════════════════
+     DONATION BUBBLE
+  ══════════════════════════════ */
+  #donate-bubble {
+    position: fixed; bottom: 24px; right: 24px;
+    width: 54px; height: 54px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--premium), #f5a623);
+    border: none; cursor: pointer; z-index: 301;
+    box-shadow: 0 4px 20px rgba(245,200,66,.35), 0 0 0 0 rgba(245,200,66,.4);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem;
+    animation: bubblePulse 2.5s ease-in-out infinite;
+    transition: transform .2s;
+  }
+  #donate-bubble:hover { transform: scale(1.1); }
+  @keyframes bubblePulse {
+    0%,100% { box-shadow: 0 4px 20px rgba(245,200,66,.35), 0 0 0 0 rgba(245,200,66,.35); }
+    50%      { box-shadow: 0 4px 20px rgba(245,200,66,.35), 0 0 0 12px rgba(245,200,66,.0); }
+  }
+
+  /* Donation popup */
+  #donate-popup {
+    position: fixed; bottom: 90px; right: 24px;
+    width: 300px;
+    background: var(--surface);
+    border: 1px solid rgba(245,200,66,.25);
+    border-radius: 18px;
+    padding: 22px 20px;
+    z-index: 302;
+    box-shadow: 0 12px 40px rgba(0,0,0,.5);
+    display: none;
+    animation: toastIn .35s cubic-bezier(.22,1,.36,1) both;
+  }
+  #donate-popup.open { display: block; }
+  .donate-close {
+    position: absolute; top: 12px; right: 14px;
+    background: none; border: none; color: var(--text3);
+    cursor: pointer; font-size: 1rem; transition: color .2s;
+  }
+  .donate-close:hover { color: var(--text); }
+  .donate-icon { font-size: 2rem; margin-bottom: 10px; }
+  .donate-title { font-family: var(--font-head); font-size: 1rem; font-weight: 700; margin-bottom: 6px; color: var(--premium); }
+  .donate-body { font-size: .825rem; color: var(--text2); line-height: 1.6; margin-bottom: 16px; }
+  .donate-form { display: flex; flex-direction: column; gap: 8px; }
+  .donate-name-input {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px;
+    color: var(--text); font-family: var(--font-body); font-size: .875rem;
+    outline: none; transition: border-color .2s;
+  }
+  .donate-name-input:focus { border-color: var(--premium); }
+  .donate-name-input::placeholder { color: var(--text3); }
+  .btn-donate-send {
+    background: linear-gradient(135deg, var(--premium), #f5a623);
+    border: none; border-radius: 8px; padding: 11px;
+    color: #1a1000; font-family: var(--font-head); font-weight: 700; font-size: .875rem;
+    cursor: pointer; transition: opacity .2s;
+  }
+  .btn-donate-send:hover { opacity: .88; }
+  .donate-sent-msg {
+    display: none; text-align: center;
+    font-size: .875rem; color: var(--success); padding: 10px 0;
+  }
+  .donate-sent-msg.show { display: block; animation: fadeUp .4s ease both; }
+
+  /* responsive */
+  @media(max-width:640px){
+    #sidebar { width:260px; }
+    :root { --sidebar-w:260px; }
+    .auth-card { width:95vw; padding:32px 24px; }
+    .form-row { grid-template-columns:1fr; }
+    #chat-area { padding:20px 14px; }
+    #input-area { padding:14px 14px 18px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════ AUTH PAGES ══════════════════════════ -->
+<div id="auth-wrap">
+
+  <!-- REGISTER -->
+  <div class="auth-card" id="register-card">
+
+    <!-- Notification -->
+    <div class="notif-banner" id="reg-notif">
+      <span class="notif-icon">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M7.5 1C3.91 1 1 3.91 1 7.5S3.91 14 7.5 14 14 11.09 14 7.5 11.09 1 7.5 1Zm.75 9.75h-1.5v-1.5h1.5v1.5Zm0-3h-1.5V4.25h1.5V7.75Z" fill="currentColor"/>
+        </svg>
+      </span>
+      <div>
+        <strong style="color:var(--text);font-size:.83rem;">Selamat datang di NeuralChat!</strong><br>
+        Dengan mendaftar, kamu menyetujui ketentuan penggunaan kami. Gunakan AI ini dengan bijak dan bertanggung jawab. Dilarang menyalahgunakan layanan untuk konten berbahaya atau melanggar hukum.
+      </div>
+      <button class="close-notif" onclick="document.getElementById('reg-notif').style.display='none'">✕</button>
+    </div>
+
+    <!-- Logo -->
+    <div class="auth-logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 42 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="42" height="42" rx="12" fill="url(#lg1)"/>
+          <circle cx="21" cy="18" r="6" fill="rgba(255,255,255,.9)"/>
+          <circle cx="21" cy="18" r="3" fill="#4f8ef7"/>
+          <rect x="15" y="26" width="12" height="2" rx="1" fill="rgba(255,255,255,.7)"/>
+          <rect x="17" y="30" width="8" height="2" rx="1" fill="rgba(255,255,255,.5)"/>
+          <line x1="10" y1="18" x2="15" y2="18" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="27" y1="18" x2="32" y2="18" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="10" cy="18" r="2" fill="rgba(255,255,255,.5)"/>
+          <circle cx="32" cy="18" r="2" fill="rgba(255,255,255,.5)"/>
+          <defs>
+            <linearGradient id="lg1" x1="0" y1="0" x2="42" y2="42" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#4f8ef7"/>
+              <stop offset="1" stop-color="#7c5ef5"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div class="logo-text">Neural<span>Chat</span></div>
+    </div>
+
+    <div class="auth-title">Buat Akun</div>
+    <div class="auth-sub">Bergabung dan mulai berinteraksi dengan AI kami</div>
+
+    <div class="form-grid">
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="reg-username" placeholder="contoh: john_doe" autocomplete="off">
+        <div class="field-error" id="err-username"></div>
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="reg-email" placeholder="kamu@email.com" autocomplete="off">
+        <div class="field-error" id="err-email"></div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="reg-password" placeholder="Min. 6 karakter">
+          <div class="field-error" id="err-password"></div>
+        </div>
+        <div class="field">
+          <label>Tanggal Lahir</label>
+          <input type="text" id="reg-dob" placeholder="DD/MM/YYYY" maxlength="10">
+          <div class="field-error" id="err-dob"></div>
+        </div>
+      </div>
+      <!-- Captcha -->
+      <div class="field">
+        <label>Verifikasi CAPTCHA</label>
+        <div class="captcha-box">
+          <div class="captcha-display" id="captcha-display"></div>
+          <button class="captcha-refresh" onclick="genCaptcha()" title="Refresh">↻</button>
+          <div class="captcha-input field" style="margin:0">
+            <input type="text" id="reg-captcha" placeholder="Ketik kode di atas" maxlength="6">
+          </div>
+        </div>
+        <div class="field-error" id="err-captcha"></div>
+      </div>
+      <button class="btn-primary" onclick="doRegister()">Daftar Sekarang →</button>
+    </div>
+
+    <div class="auth-switch">Sudah punya akun? <a onclick="showLogin()">Masuk</a></div>
+  </div>
+
+  <!-- LOGIN -->
+  <div class="auth-card" id="login-card" style="display:none">
+    <div class="auth-logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 42 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="42" height="42" rx="12" fill="url(#lg2)"/>
+          <circle cx="21" cy="18" r="6" fill="rgba(255,255,255,.9)"/>
+          <circle cx="21" cy="18" r="3" fill="#4f8ef7"/>
+          <rect x="15" y="26" width="12" height="2" rx="1" fill="rgba(255,255,255,.7)"/>
+          <rect x="17" y="30" width="8" height="2" rx="1" fill="rgba(255,255,255,.5)"/>
+          <line x1="10" y1="18" x2="15" y2="18" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="27" y1="18" x2="32" y2="18" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="10" cy="18" r="2" fill="rgba(255,255,255,.5)"/>
+          <circle cx="32" cy="18" r="2" fill="rgba(255,255,255,.5)"/>
+          <defs>
+            <linearGradient id="lg2" x1="0" y1="0" x2="42" y2="42" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#4f8ef7"/>
+              <stop offset="1" stop-color="#7c5ef5"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div class="logo-text">Neural<span>Chat</span></div>
+    </div>
+    <div class="auth-title">Masuk</div>
+    <div class="auth-sub">Selamat datang kembali!</div>
+    <div class="form-grid">
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="login-username" placeholder="Username kamu" autocomplete="off">
+        <div class="field-error" id="err-login"></div>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="Password kamu">
+      </div>
+      <button class="btn-primary" onclick="doLogin()">Masuk →</button>
+    </div>
+    <div class="auth-switch">Belum punya akun? <a onclick="showRegister()">Daftar</a></div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════ MAIN APP ══════════════════════════ -->
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <nav id="sidebar">
+    <div class="sidebar-head">
+      <div class="logo-icon" style="width:30px;height:30px">
+        <svg viewBox="0 0 42 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="42" height="42" rx="12" fill="url(#lg3)"/>
+          <circle cx="21" cy="18" r="6" fill="rgba(255,255,255,.9)"/>
+          <circle cx="21" cy="18" r="3" fill="#4f8ef7"/>
+          <rect x="15" y="26" width="12" height="2" rx="1" fill="rgba(255,255,255,.7)"/>
+          <line x1="10" y1="18" x2="15" y2="18" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="27" y1="18" x2="32" y2="18" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="10" cy="18" r="2" fill="rgba(255,255,255,.5)"/>
+          <circle cx="32" cy="18" r="2" fill="rgba(255,255,255,.5)"/>
+          <defs>
+            <linearGradient id="lg3" x1="0" y1="0" x2="42" y2="42">
+              <stop stop-color="#4f8ef7"/><stop offset="1" stop-color="#7c5ef5"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div class="sidebar-logo">Neural<span>Chat</span></div>
+      <button id="sidebar-close" onclick="toggleSidebar()">✕</button>
+    </div>
+
+    <button class="sidebar-new-chat" onclick="newChat()">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      Chat Baru
+    </button>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Riwayat Chat</div>
+    </div>
+    <div class="chat-history-list" id="chat-history-list">
+      <!-- filled by JS -->
+    </div>
+
+    <div class="sidebar-nav">
+      <div class="nav-item" onclick="openPsycho()">
+        <span class="nav-icon">🧠</span> Tes Psikologi
+      </div>
+      <div class="nav-item" onclick="openProfile()">
+        <span class="nav-icon">👤</span> Profil Saya
+      </div>
+      <div class="nav-item" onclick="openPanel('contact-modal')">
+        <span class="nav-icon">📬</span> Hubungi Developer
+      </div>
+      <div class="nav-item" onclick="openPanel('report-modal')">
+        <span class="nav-icon">🚩</span> Laporan & Masukan
+      </div>
+      <div class="nav-item" onclick="openPanel('limit-info-modal')">
+        <span class="nav-icon">📊</span> Info Limit Chat
+      </div>
+      <div class="nav-item premium-item" onclick="openPayment()">
+        <span class="nav-icon">✦</span> Upgrade Premium
+      </div>
+    </div>
+
+    <div class="limit-bar-wrap">
+      <div class="limit-bar-label">
+        <span>Limit Chat</span>
+        <span id="limit-label">0 / 20</span>
+      </div>
+      <div class="limit-bar-track">
+        <div class="limit-bar-fill" id="limit-bar-fill" style="width:0%"></div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <div id="main">
+    <!-- Topbar -->
+    <div id="topbar">
+      <button id="sidebar-toggle" onclick="toggleSidebar()">
+        <svg width="18" height="14" viewBox="0 0 18 14" fill="none"><rect width="18" height="2" rx="1" fill="currentColor"/><rect y="6" width="18" height="2" rx="1" fill="currentColor"/><rect y="12" width="12" height="2" rx="1" fill="currentColor"/></svg>
+      </button>
+      <div class="topbar-title">NeuralChat</div>
+      <div class="topbar-model">
+        <div class="model-dot"></div>
+        GPT-4o
+      </div>
+    </div>
+
+    <!-- Chat -->
+    <div id="chat-area">
+      <div id="welcome-screen">
+        <div class="welcome-logo">
+          <svg viewBox="0 0 70 70" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="35" cy="35" r="35" fill="url(#wlg)"/>
+            <circle cx="35" cy="30" r="11" fill="rgba(255,255,255,.9)"/>
+            <circle cx="35" cy="30" r="5.5" fill="#4f8ef7"/>
+            <rect x="25" y="44" width="20" height="3" rx="1.5" fill="rgba(255,255,255,.7)"/>
+            <rect x="28" y="50" width="14" height="3" rx="1.5" fill="rgba(255,255,255,.45)"/>
+            <line x1="16" y1="30" x2="24" y2="30" stroke="rgba(255,255,255,.5)" stroke-width="2" stroke-linecap="round"/>
+            <line x1="46" y1="30" x2="54" y2="30" stroke="rgba(255,255,255,.5)" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="16" cy="30" r="3" fill="rgba(255,255,255,.5)"/>
+            <circle cx="54" cy="30" r="3" fill="rgba(255,255,255,.5)"/>
+            <defs>
+              <linearGradient id="wlg" x1="0" y1="0" x2="70" y2="70">
+                <stop stop-color="#4f8ef7"/><stop offset="1" stop-color="#7c5ef5"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="welcome-title">Halo, <span id="welcome-name">Pengguna</span>!</div>
+        <div class="welcome-sub">Saya NeuralChat AI. Tanyakan apa saja kepada saya — saya siap membantu kamu.</div>
+        <div class="suggestion-chips">
+          <div class="chip" onclick="sendChip(this)">Jelaskan machine learning</div>
+          <div class="chip" onclick="sendChip(this)">Tulis puisi tentang bulan</div>
+          <div class="chip" onclick="sendChip(this)">Bantu saya coding Python</div>
+          <div class="chip" onclick="sendChip(this)">Tips produktivitas harian</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input Area -->
+    <div id="input-area">
+      <div class="input-wrap">
+        <textarea id="msg-input" placeholder="Ketik pesan kamu..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button id="send-btn" onclick="sendMessage()">
+          <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M1.5 1.5L14.5 8l-13 6.5V9.5L10 8 2.5 6.5V1.5z"/></svg>
+        </button>
+      </div>
+      <div class="input-hint">NeuralChat dapat membuat kesalahan. Periksa informasi penting.</div>
+    </div>
+
+    <!-- Limit Reached -->
+    <div id="limit-reached">
+      <div class="limit-notice">
+        <div class="limit-notice-icon">🔒</div>
+        <h3>Limit Chat Habis</h3>
+        <p>Kamu telah mencapai batas percakapan gratis. Upgrade ke Premium untuk akses tanpa batas, atau hubungi owner untuk meminta tambahan limit.</p>
+        <div class="limit-actions">
+          <button class="btn-subscribe" onclick="openPayment()">✦ Upgrade Premium</button>
+          <button class="btn-request" onclick="openPanel('contact-modal')">Minta Limit ke Owner</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════ PSYCHOLOGY TEST PAGE ══════════════════ -->
+  <div id="psycho-page">
+    <div class="psycho-topbar">
+      <button onclick="toggleSidebar()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:1.1rem;padding:8px;border-radius:8px;transition:background .2s,color .2s">
+        <svg width="18" height="14" viewBox="0 0 18 14" fill="none"><rect width="18" height="2" rx="1" fill="currentColor"/><rect y="6" width="18" height="2" rx="1" fill="currentColor"/><rect y="12" width="12" height="2" rx="1" fill="currentColor"/></svg>
+      </button>
+      <div class="psycho-topbar-title">
+        🧠 Tes Psikologi
+        <span class="psycho-badge">FREE</span>
+      </div>
+      <div class="psycho-progress-wrap">
+        <div class="psycho-progress-bar">
+          <div class="psycho-progress-fill" id="psycho-bar" style="width:0%"></div>
+        </div>
+        <span class="psycho-progress-label" id="psycho-step-label">0 / 15</span>
+      </div>
+      <button onclick="closePsycho()" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--text2);cursor:pointer;font-size:.8rem;margin-left:8px;transition:all .2s">← Kembali</button>
+    </div>
+    <div class="psycho-chat-area" id="psycho-chat-area"></div>
+    <div class="psycho-input-wrap" id="psycho-input-wrap" style="display:none">
+      <div class="psycho-input-inner">
+        <textarea id="psycho-text-input" placeholder="Ketik jawabanmu di sini..." rows="1" oninput="autoResize(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();psychoSendText();}"></textarea>
+        <button id="psycho-send-btn" onclick="psychoSendText()">
+          <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M1.5 1.5L14.5 8l-13 6.5V9.5L10 8 2.5 6.5V1.5z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════ FLOATING AD ══════════════════ -->
+<div id="float-ad" style="display:none">
+  <button class="ad-close" onclick="document.getElementById('float-ad').style.display='none'">✕</button>
+  <div class="ad-label">Pengumuman</div>
+  <div class="ad-body">
+    <strong>NeuralChat</strong> terus berkembang untuk kamu! 🚀<br>
+    Dukung kami agar layanan tetap gratis dan terus diperbarui.
+  </div>
+  <button class="ad-cta" onclick="document.getElementById('float-ad').style.display='none';openDonate()">💛 Dukung Kami</button>
+</div>
+
+<!-- ══════════════════ DONATE BUBBLE ══════════════════ -->
+<button id="donate-bubble" onclick="openDonate()" title="Support & Donasi" style="display:none">💛</button>
+
+<!-- ══════════════════ DONATE POPUP ══════════════════ -->
+<div id="donate-popup">
+  <button class="donate-close" onclick="closeDonate()">✕</button>
+  <div class="donate-icon">💛</div>
+  <div class="donate-title">Support NeuralChat</div>
+  <div class="donate-body">
+    NeuralChat dibuat dengan penuh dedikasi dan tetap <strong>gratis</strong> untuk semua orang. Jika kamu merasa terbantu, dukunganmu sangat berarti! 🙏<br><br>
+    Kirim pesan ke owner sebagai tanda bukti support atau donasi kamu.
+  </div>
+  <div class="donate-form" id="donate-form">
+    <input class="donate-name-input" id="donate-name" type="text" placeholder="Nama kamu (opsional)">
+    <input class="donate-name-input" id="donate-msg-input" type="text" placeholder="Pesan / nominal donasi (opsional)">
+    <button class="btn-donate-send" onclick="sendDonateMsg()">📨 Kirim ke Owner sebagai Bukti</button>
+  </div>
+  <div class="donate-sent-msg" id="donate-sent">
+    ✅ Terima kasih! Pesan support-mu sudah terkirim ke owner. Kamu luar biasa! 🎉
+  </div>
+</div>
+
+<!-- ══════════════════════════ WELCOME TOAST ══════════════════════════ -->
+<div id="welcome-toast" style="display:none">
+  <div class="toast-card">
+    <div class="toast-icon">⚠️</div>
+    <h2>Perhatian Pengguna Baru</h2>
+    <p>Sebelum mulai menggunakan NeuralChat, harap baca dan patuhi panduan berikut:</p>
+    <ul class="toast-rules">
+      <li>Gunakan AI ini untuk tujuan yang positif dan bermanfaat</li>
+      <li>Dilarang membuat konten berbahaya, SARA, atau melanggar hukum</li>
+      <li>Jangan membagikan informasi pribadi sensitif dalam percakapan</li>
+      <li>Jawaban AI bukan pengganti saran profesional (medis, hukum, dll)</li>
+      <li>Laporkan konten tidak pantas melalui menu Laporan & Masukan</li>
+    </ul>
+    <button class="btn-got-it" onclick="closeWelcomeToast()">Saya Mengerti ✓</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════ PAYMENT MODAL ══════════════════════════ -->
+<div id="payment-modal">
+  <div class="payment-card">
+    <div class="payment-header">
+      <div>
+        <h2>✦ Premium NeuralChat</h2>
+        <p>Akses tanpa batas dengan fitur premium</p>
+      </div>
+    </div>
+    <div class="payment-banner-inner">
+      <svg viewBox="0 0 480 180" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="pg1" cx="30%" cy="50%" r="60%"><stop offset="0%" stop-color="#4f8ef7" stop-opacity=".3"/><stop offset="100%" stop-color="transparent"/></radialGradient>
+          <radialGradient id="pg2" cx="70%" cy="50%" r="60%"><stop offset="0%" stop-color="#7c5ef5" stop-opacity=".25"/><stop offset="100%" stop-color="transparent"/></radialGradient>
+          <radialGradient id="pg3" cx="50%" cy="50%" r="40%"><stop offset="0%" stop-color="#f5c842" stop-opacity=".2"/><stop offset="100%" stop-color="transparent"/></radialGradient>
+        </defs>
+        <rect width="480" height="180" fill="#0d1117"/>
+        <ellipse cx="144" cy="90" rx="200" ry="120" fill="url(#pg1)"/>
+        <ellipse cx="336" cy="90" rx="200" ry="120" fill="url(#pg2)"/>
+        <ellipse cx="240" cy="90" rx="140" ry="80" fill="url(#pg3)"/>
+        <!-- Stars -->
+        <circle cx="60" cy="30" r="1.5" fill="#f5c842" opacity=".7"/>
+        <circle cx="120" cy="50" r="1" fill="#4f8ef7" opacity=".8"/>
+        <circle cx="200" cy="20" r="1.5" fill="#fff" opacity=".5"/>
+        <circle cx="300" cy="40" r="1" fill="#f5c842" opacity=".6"/>
+        <circle cx="400" cy="25" r="1.5" fill="#7c5ef5" opacity=".7"/>
+        <circle cx="440" cy="55" r="1" fill="#fff" opacity=".4"/>
+        <circle cx="80" cy="140" r="1" fill="#4f8ef7" opacity=".5"/>
+        <circle cx="370" cy="150" r="1.5" fill="#f5c842" opacity=".6"/>
+        <!-- Crown icon -->
+        <g transform="translate(200,50)">
+          <path d="M0 50 L15 10 L40 40 L65 5 L90 40 L105 10 L120 50 Z" fill="none" stroke="#f5c842" stroke-width="2" opacity=".7"/>
+          <rect x="5" y="50" width="110" height="15" rx="3" fill="#f5c842" opacity=".4"/>
+          <circle cx="0" cy="50" r="5" fill="#f5c842" opacity=".8"/>
+          <circle cx="60" cy="5" r="5" fill="#f5c842" opacity=".8"/>
+          <circle cx="120" cy="50" r="5" fill="#f5c842" opacity=".8"/>
+          <circle cx="30" cy="30" r="4" fill="#f5c842" opacity=".6"/>
+          <circle cx="90" cy="26" r="4" fill="#f5c842" opacity=".6"/>
+        </g>
+      </svg>
+      <div class="payment-banner-text" style="position:absolute;z-index:2;text-align:center">
+        <h3>✦ PREMIUM</h3>
+        <p>Unlimited · Faster · Smarter</p>
+      </div>
+    </div>
+    <div class="payment-body">
+      <div class="plan-options">
+        <div class="plan-opt selected" onclick="selectPlan(this,'monthly')">
+          <div class="plan-name">Bulanan</div>
+          <div class="plan-price">Rp 29K <span>/bulan</span></div>
+          <div class="plan-desc">500 chat/bulan</div>
+        </div>
+        <div class="plan-opt" onclick="selectPlan(this,'annual')">
+          <div class="plan-name">Tahunan</div>
+          <div class="plan-price">Rp 249K <span>/tahun</span></div>
+          <div class="plan-desc">Unlimited chat 🔥</div>
+        </div>
+      </div>
+      <div class="payment-note">
+        Pembayaran diproses dengan aman. Setelah konfirmasi pembayaran, akun kamu akan langsung diupgrade oleh admin. Hubungi developer untuk konfirmasi.
+      </div>
+      <div class="payment-actions">
+        <button class="btn-pay" onclick="confirmPayment()">Bayar Sekarang →</button>
+        <button class="btn-cancel-pay" onclick="closeModal('payment-modal')">Batal</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE MODAL -->
+<div class="panel-modal" id="profile-modal">
+  <div class="panel-card">
+    <h2>👤 Profil Saya</h2>
+    <div class="panel-sub">Informasi akun kamu</div>
+    <button class="panel-close" onclick="closeModal('profile-modal')">✕</button>
+    <hr class="info-sep">
+    <div class="info-row"><div class="info-label">Username</div><div class="info-value" id="p-username">—</div></div>
+    <div class="info-row"><div class="info-label">Email</div><div class="info-value" id="p-email">—</div></div>
+    <div class="info-row"><div class="info-label">Tgl. Lahir</div><div class="info-value" id="p-dob">—</div></div>
+    <div class="info-row"><div class="info-label">Status</div><div class="info-value" id="p-status">Gratis</div></div>
+    <div class="info-row"><div class="info-label">Limit Chat</div><div class="info-value" id="p-limit">—</div></div>
+    <hr class="info-sep">
+    <button class="btn-submit-panel" style="background:var(--danger);margin-top:0" onclick="doLogout()">Keluar dari Akun</button>
+  </div>
+</div>
+
+<!-- CONTACT MODAL -->
+<div class="panel-modal" id="contact-modal">
+  <div class="panel-card">
+    <h2>📬 Hubungi Developer</h2>
+    <div class="panel-sub">Sampaikan pertanyaan atau saran kamu</div>
+    <button class="panel-close" onclick="closeModal('contact-modal')">✕</button>
+    <div class="field" style="margin-bottom:0">
+      <label>Pesan</label>
+      <textarea class="panel-textarea" id="contact-msg" placeholder="Tulis pesan kamu di sini..."></textarea>
+    </div>
+    <button class="btn-submit-panel" onclick="submitContact()">Kirim Pesan</button>
+  </div>
+</div>
+
+<!-- REPORT MODAL -->
+<div class="panel-modal" id="report-modal">
+  <div class="panel-card">
+    <h2>🚩 Laporan & Masukan</h2>
+    <div class="panel-sub">Bantu kami memperbaiki layanan</div>
+    <button class="panel-close" onclick="closeModal('report-modal')">✕</button>
+    <div class="field">
+      <label>Jenis Laporan</label>
+      <select id="report-type" style="width:100%;padding:11px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font-body);font-size:.9rem;outline:none">
+        <option value="bug">Bug / Error</option>
+        <option value="content">Konten Tidak Pantas</option>
+        <option value="feature">Permintaan Fitur</option>
+        <option value="other">Lainnya</option>
+      </select>
+    </div>
+    <div class="field" style="margin-bottom:0">
+      <label>Deskripsi</label>
+      <textarea class="panel-textarea" id="report-msg" placeholder="Jelaskan masalah atau masukan kamu..."></textarea>
+    </div>
+    <button class="btn-submit-panel" onclick="submitReport()">Kirim Laporan</button>
+  </div>
+</div>
+
+<!-- LIMIT INFO MODAL -->
+<div class="panel-modal" id="limit-info-modal">
+  <div class="panel-card">
+    <h2>📊 Info Limit Chat</h2>
+    <div class="panel-sub">Status penggunaan chat kamu</div>
+    <button class="panel-close" onclick="closeModal('limit-info-modal')">✕</button>
+    <hr class="info-sep">
+    <div class="info-row"><div class="info-label">Digunakan</div><div class="info-value" id="li-used">—</div></div>
+    <div class="info-row"><div class="info-label">Total Limit</div><div class="info-value" id="li-total">—</div></div>
+    <div class="info-row"><div class="info-label">Sisa</div><div class="info-value" id="li-remain" style="color:var(--success)">—</div></div>
+    <div class="info-row"><div class="info-label">Status</div><div class="info-value" id="li-status">—</div></div>
+    <hr class="info-sep">
+    <p style="font-size:.8rem;color:var(--text2);line-height:1.55">Limit direset oleh admin. Untuk menambah limit, hubungi developer atau upgrade ke Premium.</p>
+    <button class="btn-submit-panel" onclick="openPayment();closeModal('limit-info-modal')">✦ Upgrade Premium</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+// ══════════════════════════════════════════
+// KEYS — GANTI DI SINI
+// ══════════════════════════════════════════
+// Atau set lewat halaman admin.html (lebih mudah)
+const _appKeys = JSON.parse(localStorage.getItem('nc_app_keys') || '{}');
+const OPENAI_KEY    = _appKeys.openai || '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';   // ← line 1468: OpenAI key
+const SB_URL        = _appKeys.sbUrl  || 'https://hlayyekwhahgdftvodbh.supabase.co';     // ← line 1469: Supabase URL
+const SB_KEY        = _appKeys.sbKey  || 'sb_publishable_7BIpp44f-1f0GWcftvS8Lg_CCXPHYG7';// ← line 1470: Supabase anon key
+
+const DEFAULT_LIMIT = 20;
+let currentUser     = null;
+let captchaCode     = '';
+let chatMessages    = [];
+let selectedPlan    = 'monthly';
+let sidebarOpen     = true;
+
+// ══════════════════════════════════════════
+// SUPABASE CLIENT (lightweight fetch wrapper)
+// ══════════════════════════════════════════
+const SB = {
+  _h: () => ({
+    'Content-Type':  'application/json',
+    'apikey':        SB_KEY,
+    'Authorization': 'Bearer ' + SB_KEY,
+    'Prefer':        'return=representation'
+  }),
+  _ready: () => SB_URL !== 'https://hlayyekwhahgdftvodbh.supabase.co' && SB_KEY !== 'sb_publishable_7BIpp44f-1f0GWcftvS8Lg_CCXPHYG7',
+
+  async select(table, filter='') {
+    if (!SB._ready()) return null;
+    try {
+      const r = await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, { headers: SB._h() });
+      return r.ok ? r.json() : null;
+    } catch { return null; }
+  },
+  async insert(table, body) {
+    if (!SB._ready()) return null;
+    try {
+      const r = await fetch(`${SB_URL}/rest/v1/${table}`, {
+        method: 'POST', headers: SB._h(), body: JSON.stringify(body)
+      });
+      const data = await r.json();
+      return r.ok ? data : null;
+    } catch { return null; }
+  },
+  async update(table, filter, body) {
+    if (!SB._ready()) return null;
+    try {
+      const r = await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, {
+        method: 'PATCH', headers: SB._h(), body: JSON.stringify(body)
+      });
+      return r.ok;
+    } catch { return false; }
+  },
+  async upsert(table, body) {
+    if (!SB._ready()) return null;
+    try {
+      const r = await fetch(`${SB_URL}/rest/v1/${table}`, {
+        method: 'POST',
+        headers: { ...SB._h(), 'Prefer': 'resolution=merge-duplicates,return=representation' },
+        body: JSON.stringify(body)
+      });
+      return r.ok ? r.json() : null;
+    } catch { return null; }
+  },
+  async delete(table, filter) {
+    if (!SB._ready()) return null;
+    try {
+      const r = await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, {
+        method: 'DELETE', headers: SB._h()
+      });
+      return r.ok;
+    } catch { return false; }
+  }
+};
+
+// ══════════════════════════════════════════
+// DB — Supabase-first, localStorage fallback
+// ══════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════
+// Simple hash (SHA-256 via Web Crypto) — password tidak disimpan plain text
+async function hashPass(pass) {
+  const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pass));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// Convert camelCase user object → snake_case untuk Supabase REST
+function toSB(user) {
+  return {
+    username:    user.username,
+    email:       user.email,
+    password:    user.password,    // already hashed before save
+    dob:         user.dob,
+    premium:     user.premium,
+    chat_limit:  user.chatLimit,
+    chat_used:   user.chatUsed,
+    is_new:      user.isNew,
+    created_at:  user.createdAt
+  };
+}
+// Convert snake_case Supabase row → camelCase app object
+function fromSB(row) {
+  return {
+    username:   row.username,
+    email:      row.email,
+    password:   row.password,
+    dob:        row.dob,
+    premium:    row.premium,
+    chatLimit:  row.chat_limit  ?? row.chatLimit  ?? 20,
+    chatUsed:   row.chat_used   ?? row.chatUsed   ?? 0,
+    isNew:      row.is_new      ?? row.isNew      ?? false,
+    createdAt:  row.created_at  ?? row.createdAt  ?? Date.now()
+  };
+}
+
+// ══════════════════════════════════════════
+const DB = {
+  // ── localStorage helpers (fallback) ──
+  _lsUsers: ()    => JSON.parse(localStorage.getItem('nc_users') || '[]'),
+  _lsSave:  (u)   => localStorage.setItem('nc_users', JSON.stringify(u)),
+  _lsGet:   (uname) => DB._lsUsers().find(u => u.username === uname),
+  _lsSet:   (user) => {
+    const users = DB._lsUsers();
+    const idx = users.findIndex(u => u.username === user.username);
+    if (idx >= 0) users[idx] = user; else users.push(user);
+    DB._lsSave(users);
+  },
+
+  // ── getUser: Supabase → localStorage fallback ──
+  async getUser(username) {
+    if (SB._ready()) {
+      const rows = await SB.select('nc_users', `username=eq.${encodeURIComponent(username)}`);
+      if (rows && rows.length) {
+        const user = fromSB(rows[0]);
+        DB._lsSet(user); // keep local in sync
+        return user;
+      }
+    }
+    return DB._lsGet(username);
+  },
+
+  // ── setUser: upsert ke Supabase + localStorage ──
+  async setUser(user) {
+    DB._lsSet(user); // always keep local copy
+    if (SB._ready()) {
+      // Gunakan upsert via Prefer header agar tidak perlu cek exists dulu
+      await SB.upsert('nc_users', toSB(user));
+    }
+  },
+
+  // ── deleteUser (owner only) ──
+  async deleteUser(username) {
+    const users = DB._lsUsers().filter(u => u.username !== username);
+    DB._lsSave(users);
+    localStorage.removeItem('nc_hist_' + username);
+    if (SB._ready()) {
+      await SB.delete('nc_users', `username=eq.${encodeURIComponent(username)}`);
+      await SB.delete('nc_history', `username=eq.${encodeURIComponent(username)}`);
+    }
+  },
+
+  // ── getAllUsers (owner panel) ──
+  async getAllUsers() {
+    if (SB._ready()) {
+      const rows = await SB.select('nc_users', 'order=created_at.desc');
+      if (rows && rows.length) return rows.map(fromSB);
+    }
+    return DB._lsUsers();
+  },
+
+  // ── chat history: localStorage + Supabase ──
+  getHistory(username) {
+    return JSON.parse(localStorage.getItem('nc_hist_' + username) || '[]');
+  },
+  async saveHistory(username, h) {
+    localStorage.setItem('nc_hist_' + username, JSON.stringify(h));
+    if (SB._ready()) {
+      // Simpan sebagai satu row JSON per user (upsert)
+      await SB.upsert('nc_history', {
+        username,
+        history: JSON.stringify(h),
+        updated_at: Date.now()
+      });
+    }
+  },
+  async loadHistory(username) {
+    if (SB._ready()) {
+      const rows = await SB.select('nc_history', `username=eq.${encodeURIComponent(username)}`);
+      if (rows && rows.length) {
+        try {
+          const h = JSON.parse(rows[0].history || '[]');
+          localStorage.setItem('nc_hist_' + username, JSON.stringify(h));
+          return h;
+        } catch { /* fall through */ }
+      }
+    }
+    return JSON.parse(localStorage.getItem('nc_hist_' + username) || '[]');
+  },
+
+  // ── session (always localStorage — tidak perlu Supabase) ──
+  getSession:   () => JSON.parse(localStorage.getItem('nc_session') || 'null'),
+  setSession:   (u) => localStorage.setItem('nc_session', JSON.stringify(u)),
+  clearSession: ()  => localStorage.removeItem('nc_session'),
+};
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+window.onload = async () => {
+  genCaptcha();
+  const session = DB.getSession();
+  if (session) {
+    currentUser = await DB.getUser(session.username);
+    if (currentUser) { launchApp(); return; }
+  }
+  document.body.classList.add('auth-mode');
+};
+
+// ══════════════════════════════════════════
+// CAPTCHA
+// ══════════════════════════════════════════
+function genCaptcha() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  captchaCode = Array.from({length:5}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+  document.getElementById('captcha-display').textContent = captchaCode;
+}
+
+// ══════════════════════════════════════════
+// AUTH SWITCHING
+// ══════════════════════════════════════════
+function showLogin() {
+  document.getElementById('register-card').style.display='none';
+  document.getElementById('login-card').style.display='block';
+}
+function showRegister() {
+  document.getElementById('login-card').style.display='none';
+  document.getElementById('register-card').style.display='block';
+}
+
+// ══════════════════════════════════════════
+// REGISTER
+// ══════════════════════════════════════════
+async function doRegister() {
+  const username = document.getElementById('reg-username').value.trim();
+  const email    = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const dob      = document.getElementById('reg-dob').value.trim();
+  const captcha  = document.getElementById('reg-captcha').value.trim().toUpperCase();
+
+  clearErrors();
+
+  let valid = true;
+  if (!username || username.length < 3) { showErr('err-username','Username min. 3 karakter'); valid=false; }
+  if (!email || !email.includes('@'))   { showErr('err-email','Email tidak valid'); valid=false; }
+  if (!password || password.length < 6) { showErr('err-password','Password min. 6 karakter'); valid=false; }
+  if (!validateDOB(dob))                { showErr('err-dob','Format: DD/MM/YYYY'); valid=false; }
+  if (captcha !== captchaCode)          { showErr('err-captcha','Kode CAPTCHA salah'); genCaptcha(); valid=false; }
+  if (!valid) return;
+
+  const existing = await DB.getUser(username);
+  if (existing) { showErr('err-username','Username sudah dipakai'); return; }
+
+  const hashed = await hashPass(password);
+  const user = {
+    username, email,
+    password: hashed,
+    dob, premium: false,
+    chatLimit: DEFAULT_LIMIT,
+    chatUsed:  0,
+    isNew:     true,
+    createdAt: Date.now()
+  };
+  await DB.setUser(user);
+  DB.setSession({ username });
+  currentUser = user;
+  launchApp(true);
+}
+
+function validateDOB(v) {
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(v)) return false;
+  const [d,m,y] = v.split('/').map(Number);
+  if (m<1||m>12||d<1||d>31||y<1900||y>2100) return false;
+  return true;
+}
+
+function clearErrors() {
+  ['err-username','err-email','err-password','err-dob','err-captcha','err-login'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.textContent='';
+  });
+}
+function showErr(id, msg) {
+  const el = document.getElementById(id); if(el) el.textContent=msg;
+}
+
+// ══════════════════════════════════════════
+// LOGIN
+// ══════════════════════════════════════════
+async function doLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  clearErrors();
+  const user = await DB.getUser(username);
+  const hashed = await hashPass(password);
+  if (!user || user.password !== hashed) {
+    showErr('err-login','Username atau password salah'); return;
+  }
+  DB.setSession({ username });
+  currentUser = user;
+  launchApp();
+}
+
+// ══════════════════════════════════════════
+// LAUNCH APP
+// ══════════════════════════════════════════
+function launchApp(isNew=false) {
+  document.body.classList.remove('auth-mode');
+  document.getElementById('auth-wrap').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('welcome-name').textContent = currentUser.username;
+
+  // Load history dari Supabase (fire-and-forget, update sidebar setelah dapat)
+  DB.loadHistory(currentUser.username).then(() => renderHistory());
+
+  updateLimitUI();
+  renderHistory(); // render dari localStorage dulu (instant)
+  showFloatingElements();
+
+  if (isNew || currentUser.isNew) {
+    setTimeout(() => {
+      document.getElementById('welcome-toast').style.display='flex';
+    }, 600);
+    currentUser.isNew = false;
+    DB.setUser(currentUser);
+  }
+
+  checkLimit();
+
+  // ── Sync dari Supabase tiap 30 detik (tangkap perubahan admin) ──
+  if (window._syncInterval) clearInterval(window._syncInterval);
+  window._syncInterval = setInterval(async () => {
+    if (!currentUser) return;
+    const fresh = await DB.getUser(currentUser.username);
+    if (!fresh) return;
+    // Update limit / premium jika admin mengubahnya
+    const changed = fresh.chatLimit !== currentUser.chatLimit ||
+                    fresh.chatUsed  !== currentUser.chatUsed  ||
+                    fresh.premium   !== currentUser.premium;
+    if (changed) {
+      currentUser = fresh;
+      updateLimitUI();
+      checkLimit();
+    }
+  }, 30000);
+}
+
+function doLogout() {
+  if (window._syncInterval) clearInterval(window._syncInterval);
+  DB.clearSession();
+  currentUser = null;
+  chatMessages = [];
+  document.body.classList.add('auth-mode');
+  document.getElementById('app').style.display='none';
+  document.getElementById('float-ad').style.display='none';
+  document.getElementById('donate-bubble').style.display='none';
+  document.getElementById('donate-popup').classList.remove('open');
+  document.getElementById('auth-wrap').style.display='flex';
+  document.getElementById('chat-area').innerHTML = '<div id="welcome-screen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;text-align:center;padding:40px 20px"><div class="welcome-logo">...</div></div>';
+  closeModal('profile-modal');
+  location.reload();
+}
+
+// ══════════════════════════════════════════
+// SIDEBAR
+// ══════════════════════════════════════════
+function toggleSidebar() {
+  sidebarOpen = !sidebarOpen;
+  document.getElementById('sidebar').classList.toggle('closed', !sidebarOpen);
+  document.getElementById('main').classList.toggle('sidebar-closed', !sidebarOpen);
+  document.getElementById('psycho-page').classList.toggle('sidebar-closed', !sidebarOpen);
+}
+
+// ══════════════════════════════════════════
+// WELCOME TOAST
+// ══════════════════════════════════════════
+function closeWelcomeToast() {
+  const t = document.getElementById('welcome-toast');
+  t.style.animation='fadeIn .2s ease reverse';
+  setTimeout(()=>t.style.display='none',200);
+}
+
+// ══════════════════════════════════════════
+// CHAT
+// ══════════════════════════════════════════
+function handleKey(e) {
+  if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+function autoResize(el) {
+  el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,150)+'px';
+}
+
+function sendChip(el) {
+  document.getElementById('msg-input').value = el.textContent;
+  sendMessage();
+}
+
+async function sendMessage() {
+  if (!currentUser) return;
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  // check limit
+  if (currentUser.chatUsed >= currentUser.chatLimit) {
+    checkLimit(); return;
+  }
+
+  input.value=''; input.style.height='auto';
+  hideWelcome();
+
+  // user bubble
+  appendMsg('user', text, currentUser.username.charAt(0).toUpperCase());
+  chatMessages.push({role:'user', content:text});
+
+  // update limit — await so Supabase gets the write before next check
+  currentUser.chatUsed++;
+  await DB.setUser(currentUser);
+  updateLimitUI();
+
+  // save history
+  saveHistoryItem(text);
+  renderHistory();
+
+  // typing
+  const typingId = appendTyping();
+
+  try {
+    let aiText = '';
+    if (OPENAI_KEY && OPENAI_KEY !== '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') {
+      const res = await fetch('https://api.openai.com/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},
+        body:JSON.stringify({
+          model:'gpt-4o',
+          messages:[
+            {role:'system',content:'Kamu adalah NeuralChat, asisten AI yang membantu, ramah, dan berbicara dalam Bahasa Indonesia. Berikan jawaban yang berguna dan jelas.'},
+            ...chatMessages
+          ],
+          max_tokens:800,
+        })
+      });
+      const data = await res.json();
+      aiText = data.choices?.[0]?.message?.content || 'Maaf, terjadi kesalahan. Coba lagi.';
+    } else {
+      // Demo fallback
+      await new Promise(r=>setTimeout(r,1200+Math.random()*800));
+      aiText = getDemoResponse(text);
+    }
+
+    chatMessages.push({role:'assistant',content:aiText});
+    removeTyping(typingId);
+    appendMsg('ai', aiText, '', true);
+  } catch(err) {
+    removeTyping(typingId);
+    appendMsg('ai','Terjadi kesalahan koneksi. Pastikan API key sudah diset dengan benar.');
+  }
+
+  checkLimit();
+}
+
+function getDemoResponse(text) {
+  const t = text.toLowerCase();
+  if (t.includes('halo')||t.includes('hai')||t.includes('hi')) return `Halo, ${currentUser.username}! Senang bisa berbicara denganmu. Ada yang bisa saya bantu hari ini?`;
+  if (t.includes('python')||t.includes('kode')||t.includes('coding')) return 'Tentu, saya siap membantu dengan coding Python! Coba berikan contoh kode atau pertanyaan spesifik yang ingin kamu selesaikan, dan saya akan membantu step by step.';
+  if (t.includes('puisi')||t.includes('poem')) return 'Di langit malam yang biru pekat,\nBintang-bintang berbisik pelan.\nSeperti pikiran yang mengembara jauh,\nMencari makna di setiap sudut alam.\n\n— Puisi kecil untukmu 🌙';
+  if (t.includes('machine learning')||t.includes('ml')||t.includes('ai')) return 'Machine Learning adalah cabang kecerdasan buatan yang memungkinkan komputer belajar dari data tanpa diprogram secara eksplisit.\n\n**Tiga tipe utama:**\n• Supervised Learning — belajar dari data berlabel\n• Unsupervised Learning — menemukan pola tersembunyi\n• Reinforcement Learning — belajar dari reward/punishment';
+  if (t.includes('produktif')||t.includes('tips')) return '**Tips Produktivitas Harian:**\n\n1. Gunakan teknik Pomodoro (25 menit kerja, 5 menit istirahat)\n2. Buat daftar prioritas di pagi hari\n3. Matikan notifikasi saat fokus\n4. Istirahat cukup — tidur 7-8 jam\n5. Review progress di akhir hari\n\nSemoga membantu!';
+  return `Terima kasih atas pertanyaanmu tentang "${text.substring(0,40)}...". Ini adalah mode demo — untuk respons penuh dari AI, harap isi API key OpenAI di kode sumber. Saya tetap siap membantu kamu!`;
+}
+
+function hideWelcome() {
+  const ws = document.getElementById('welcome-screen');
+  if (ws) ws.style.display='none';
+}
+
+const AI_AVATAR_SVG = `<svg viewBox="0 0 34 34" fill="none" width="34" height="34"><defs><linearGradient id="mavlg" x1="0" y1="0" x2="34" y2="34"><stop stop-color="#4f8ef7"/><stop offset="1" stop-color="#7c5ef5"/></linearGradient></defs><rect width="34" height="34" rx="17" fill="url(#mavlg)"/><circle cx="17" cy="15" r="5.5" fill="rgba(255,255,255,.9)"/><circle cx="17" cy="15" r="2.5" fill="#4f8ef7"/><rect x="11" y="22" width="12" height="2" rx="1" fill="rgba(255,255,255,.7)"/><line x1="7" y1="15" x2="11" y2="15" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-linecap="round"/><line x1="23" y1="15" x2="27" y2="15" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-linecap="round"/><circle cx="7" cy="15" r="1.8" fill="rgba(255,255,255,.5)"/><circle cx="27" cy="15" r="1.8" fill="rgba(255,255,255,.5)"/></svg>`;
+
+function appendMsg(role, text, initial='', animate=false) {
+  const area = document.getElementById('chat-area');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  const avatarContent = role === 'ai' ? AI_AVATAR_SVG : initial;
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble' + (role==='ai' && animate ? ' typing-reveal' : '');
+
+  div.innerHTML = `<div class="msg-avatar">${avatarContent}</div>`;
+  div.appendChild(bubble);
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+
+  if (role === 'ai' && animate) {
+    typewriteText(bubble, text, area);
+  } else {
+    bubble.innerHTML = formatText(text);
+    area.scrollTop = area.scrollHeight;
+  }
+  return div;
+}
+
+// ── Typewriter engine ──────────────────────────────────
+function typewriteText(bubble, rawText, area) {
+  // We type character by character over the plain text,
+  // then do a final render pass to apply markdown formatting.
+  const chars = [...rawText];           // unicode-safe
+  let idx = 0;
+  let plain = '';
+
+  // Insert blinking cursor span
+  const cursor = document.createElement('span');
+  cursor.className = 'typewriter-cursor';
+  bubble.appendChild(cursor);
+
+  // Speed: base 18ms, slightly random per char for organic feel
+  function tick() {
+    if (idx >= chars.length) {
+      // Done — do final formatted render, remove cursor
+      bubble.innerHTML = formatText(rawText);
+      area.scrollTop = area.scrollHeight;
+      return;
+    }
+
+    const batchSize = chars[idx] === '\n' ? 1 : Math.floor(Math.random() * 2) + 1;
+    for (let b = 0; b < batchSize && idx < chars.length; b++) {
+      plain += chars[idx++];
+    }
+
+    // Render intermediate: show plain text + cursor
+    bubble.innerHTML = '';
+    const textNode = document.createElement('span');
+    textNode.innerHTML = formatText(plain);
+    bubble.appendChild(textNode);
+    const cur = document.createElement('span');
+    cur.className = 'typewriter-cursor';
+    bubble.appendChild(cur);
+
+    area.scrollTop = area.scrollHeight;
+
+    // Variable speed: punctuation pauses = natural rhythm
+    const lastChar = plain[plain.length - 1];
+    let delay = 14 + Math.random() * 12;
+    if ('.!?'.includes(lastChar)) delay = 160 + Math.random() * 80;
+    else if (',;:'.includes(lastChar)) delay = 70 + Math.random() * 40;
+    else if (lastChar === '\n') delay = 50;
+
+    setTimeout(tick, delay);
+  }
+
+  setTimeout(tick, 40); // small initial pause feels natural
+}
+
+function formatText(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/\n/g,'<br>');
+}
+
+function appendTyping() {
+  const area = document.getElementById('chat-area');
+  const id = 'typing-' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'msg ai'; div.id = id;
+  div.innerHTML = `
+    <div class="msg-avatar">${AI_AVATAR_SVG}</div>
+    <div class="msg-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>
+  `;
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+  return id;
+}
+function removeTyping(id) {
+  const el = document.getElementById(id); if(el) el.remove();
+}
+
+// ══════════════════════════════════════════
+// LIMIT
+// ══════════════════════════════════════════
+function updateLimitUI() {
+  const used = currentUser.chatUsed;
+  const total = currentUser.chatLimit;
+  const pct = Math.min((used/total)*100,100);
+  document.getElementById('limit-label').textContent = `${used} / ${total}`;
+  document.getElementById('limit-bar-fill').style.width = pct+'%';
+  // limit info modal
+  const liUsed = document.getElementById('li-used');
+  if(liUsed) {
+    document.getElementById('li-used').textContent = used;
+    document.getElementById('li-total').textContent = total;
+    document.getElementById('li-remain').textContent = Math.max(total-used,0);
+    document.getElementById('li-status').textContent = currentUser.premium ? '✦ Premium' : 'Gratis';
+  }
+}
+
+function checkLimit() {
+  const ia = document.getElementById('input-area');
+  const lr = document.getElementById('limit-reached');
+  if (currentUser.chatUsed >= currentUser.chatLimit) {
+    ia.style.display='none'; lr.style.display='block';
+  } else {
+    ia.style.display='block'; lr.style.display='none';
+  }
+}
+
+// ══════════════════════════════════════════
+// HISTORY
+// ══════════════════════════════════════════
+function saveHistoryItem(text) {
+  const h = DB.getHistory(currentUser.username);
+  const preview = text.length>40 ? text.substring(0,40)+'...' : text;
+  h.unshift({ preview, time:Date.now(), msgs:chatMessages.length });
+  if(h.length>20) h.pop();
+  DB.saveHistory(currentUser.username, h);
+}
+
+function renderHistory() {
+  const list = document.getElementById('chat-history-list');
+  const h = DB.getHistory(currentUser.username);
+  if (!h.length) { list.innerHTML='<div style="padding:10px 12px;font-size:.8rem;color:var(--text3)">Belum ada riwayat</div>'; return; }
+  list.innerHTML = h.slice(0,10).map(item=>`
+    <div class="history-item">
+      <span class="hi-icon">💬</span>
+      <span>${item.preview}</span>
+    </div>
+  `).join('');
+}
+
+function newChat() {
+  chatMessages = [];
+  const area = document.getElementById('chat-area');
+  area.innerHTML = `
+    <div id="welcome-screen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;text-align:center;padding:40px 20px;animation:fadeUp .6s ease both">
+      <div class="welcome-logo">
+        <svg viewBox="0 0 70 70" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="35" cy="35" r="35" fill="url(#wlg2)"/>
+          <circle cx="35" cy="30" r="11" fill="rgba(255,255,255,.9)"/>
+          <circle cx="35" cy="30" r="5.5" fill="#4f8ef7"/>
+          <rect x="25" y="44" width="20" height="3" rx="1.5" fill="rgba(255,255,255,.7)"/>
+          <rect x="28" y="50" width="14" height="3" rx="1.5" fill="rgba(255,255,255,.45)"/>
+          <line x1="16" y1="30" x2="24" y2="30" stroke="rgba(255,255,255,.5)" stroke-width="2" stroke-linecap="round"/>
+          <line x1="46" y1="30" x2="54" y2="30" stroke="rgba(255,255,255,.5)" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="16" cy="30" r="3" fill="rgba(255,255,255,.5)"/>
+          <circle cx="54" cy="30" r="3" fill="rgba(255,255,255,.5)"/>
+          <defs><linearGradient id="wlg2" x1="0" y1="0" x2="70" y2="70"><stop stop-color="#4f8ef7"/><stop offset="1" stop-color="#7c5ef5"/></linearGradient></defs>
+        </svg>
+      </div>
+      <div class="welcome-title">Halo, <span style="background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent">${currentUser.username}</span>!</div>
+      <div class="welcome-sub">Chat baru dimulai. Tanyakan apa saja kepada saya.</div>
+      <div class="suggestion-chips">
+        <div class="chip" onclick="sendChip(this)">Jelaskan machine learning</div>
+        <div class="chip" onclick="sendChip(this)">Tulis puisi tentang bulan</div>
+        <div class="chip" onclick="sendChip(this)">Bantu saya coding Python</div>
+        <div class="chip" onclick="sendChip(this)">Tips produktivitas harian</div>
+      </div>
+    </div>
+  `;
+}
+
+// ══════════════════════════════════════════
+// MODALS
+// ══════════════════════════════════════════
+async function openPanel(id) {
+  if (id === 'limit-info-modal' || id === 'profile-modal') {
+    const fresh = await DB.getUser(currentUser.username);
+    if (fresh) currentUser = fresh;
+    updateLimitUI();
+  }
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  if (id==='payment-modal') document.getElementById('payment-modal').style.display='none';
+}
+
+async function openProfile() {
+  // Refresh dari Supabase/localStorage sebelum tampil
+  const fresh = await DB.getUser(currentUser.username);
+  if (fresh) currentUser = fresh;
+
+  document.getElementById('p-username').textContent = currentUser.username;
+  document.getElementById('p-email').textContent    = currentUser.email;
+  document.getElementById('p-dob').textContent      = currentUser.dob;
+  document.getElementById('p-status').textContent   = currentUser.premium ? '✦ Premium' : 'Gratis';
+  document.getElementById('p-limit').textContent    = `${currentUser.chatUsed} / ${currentUser.chatLimit}`;
+  updateLimitUI();
+  openPanel('profile-modal');
+}
+
+function openPayment() {
+  document.getElementById('payment-modal').style.display='flex';
+  document.getElementById('payment-modal').classList.add('open');
+}
+
+function selectPlan(el, plan) {
+  selectedPlan = plan;
+  document.querySelectorAll('.plan-opt').forEach(o=>o.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function confirmPayment() {
+  alert(`Terima kasih! Kamu memilih paket ${selectedPlan==='monthly'?'Bulanan':'Tahunan'}.\n\nSilakan hubungi developer untuk konfirmasi pembayaran.\nSetelah dikonfirmasi, akun kamu akan diupgrade otomatis.`);
+  closeModal('payment-modal');
+}
+
+function submitContact() {
+  const msg = document.getElementById('contact-msg').value.trim();
+  if (!msg) { alert('Pesan tidak boleh kosong!'); return; }
+  alert('Pesan berhasil dikirim! Developer akan merespons dalam 1x24 jam.');
+  document.getElementById('contact-msg').value='';
+  closeModal('contact-modal');
+}
+
+function submitReport() {
+  const msg = document.getElementById('report-msg').value.trim();
+  if (!msg) { alert('Deskripsi tidak boleh kosong!'); return; }
+  alert('Laporan berhasil dikirim. Terima kasih atas masukan kamu!');
+  document.getElementById('report-msg').value='';
+  closeModal('report-modal');
+}
+
+// Close modals on backdrop click
+document.querySelectorAll('.panel-modal, #payment-modal').forEach(modal=>{
+  modal.addEventListener('click', e=>{ if(e.target===modal) modal.classList.remove('open'); });
+});
+
+// DOB auto-format
+const dobInput = document.getElementById('reg-dob');
+if(dobInput) {
+  dobInput.addEventListener('input', function(){
+    let v = this.value.replace(/\D/g,'');
+    if(v.length>=3) v = v.slice(0,2)+'/'+v.slice(2);
+    if(v.length>=6) v = v.slice(0,5)+'/'+v.slice(5,9);
+    this.value = v;
+  });
+}
+
+// ══════════════════════════════════════════
+// PSYCHOLOGY TEST
+// ══════════════════════════════════════════
+const PSYCHO_QUESTIONS = [
+  {
+    q: "Ketika menghadapi masalah besar, kamu cenderung...",
+    choices: ["Menganalisis semua kemungkinan solusi secara logis", "Meminta pendapat orang-orang terdekat", "Mengatasi langsung dengan aksi cepat", "Diam dan merenungkan sendiri dulu"]
+  },
+  {
+    q: "Dalam sebuah pesta atau acara sosial, kamu biasanya...",
+    choices: ["Menjadi pusat perhatian dan menghibur orang", "Mengobrol mendalam dengan satu-dua orang", "Membantu mengorganisir atau mengurus acara", "Lebih banyak mengamati dan menikmati suasana"]
+  },
+  {
+    q: "Ketika membuat keputusan penting, kamu lebih mengandalkan...",
+    choices: ["Logika dan data yang tersedia", "Perasaan dan intuisi dalam hati", "Pendapat orang yang kamu percaya", "Pengalaman masa lalu sebagai panduan"]
+  },
+  {
+    q: "Sumber energimu paling banyak berasal dari...",
+    choices: ["Berinteraksi dengan banyak orang baru", "Waktu sendiri yang tenang dan damai", "Mencapai tujuan dan menyelesaikan tugas", "Belajar hal-hal baru dan mengeksplorasi ide"]
+  },
+  {
+    q: "Saat teman membutuhkan bantuan, kamu cenderung...",
+    choices: ["Langsung memberikan solusi praktis", "Mendengarkan dan memberikan dukungan emosional", "Mengajak orang lain untuk ikut membantu", "Memberikan waktu dan ruang untuknya berpikir"]
+  },
+  {
+    q: "Cara kamu belajar paling efektif adalah...",
+    choices: ["Membaca buku atau artikel secara mandiri", "Diskusi dan tukar pikiran bersama orang lain", "Langsung praktek dan trial-error", "Menonton tutorial atau demonstrasi visual"]
+  },
+  {
+    q: "Ketika berhadapan dengan konflik, kamu...",
+    choices: ["Menghadapinya langsung dan mencari solusi terbaik", "Berusaha memahami semua sudut pandang terlebih dahulu", "Menghindari konflik demi menjaga keharmonisan", "Membutuhkan waktu untuk menenangkan diri dulu"]
+  },
+  {
+    q: "Hal yang paling membuatmu merasa puas adalah...",
+    choices: ["Diakui atas prestasi dan pencapaian", "Membantu orang lain dan membuat mereka bahagia", "Menemukan pengetahuan atau ide yang menarik", "Memiliki stabilitas dan keamanan dalam hidup"]
+  },
+  {
+    q: "Dalam bekerja atau berkarya, kamu lebih suka...",
+    choices: ["Bekerja mandiri dengan kebebasan penuh", "Berkolaborasi dalam tim yang solid", "Memimpin dan mengarahkan orang lain", "Mengikuti panduan dan prosedur yang jelas"]
+  },
+  {
+    q: "Ketika menghadapi perubahan besar dalam hidup, kamu...",
+    choices: ["Antusias dan menyambut perubahan dengan terbuka", "Membutuhkan waktu untuk beradaptasi perlahan", "Merencanakan perubahan dengan sangat matang", "Cemas namun tetap berusaha menghadapinya"]
+  },
+  {
+    q: "Nilai terpenting dalam hidupmu adalah...",
+    choices: ["Kebebasan dan otonomi pribadi", "Hubungan dan koneksi dengan orang lain", "Pertumbuhan dan pembelajaran berkelanjutan", "Keamanan dan stabilitas jangka panjang"]
+  },
+  {
+    q: "Saat merasa stres, cara yang paling membantumu adalah...",
+    choices: ["Berolahraga atau melakukan aktivitas fisik", "Berbagi cerita dengan orang yang dipercaya", "Meditasi, journaling, atau aktivitas kreatif", "Tidur atau istirahat total untuk memulihkan diri"]
+  },
+  {
+    q: "Dalam hubungan, hal yang paling kamu cari adalah...",
+    choices: ["Kesetiaan dan komitmen jangka panjang", "Kedalaman koneksi dan pengertian mutual", "Pertumbuhan bersama dan saling menginspirasi", "Kebebasan dan saling menghormati ruang pribadi"]
+  },
+  {
+    q: "Kamu menggambarkan dirimu sendiri sebagai seseorang yang...",
+    choices: ["Ambisius dan berorientasi pada tujuan besar", "Empatik dan peka terhadap perasaan orang lain", "Penasaran dan selalu haus akan pengetahuan baru", "Setia dan dapat diandalkan dalam segala situasi"]
+  },
+  {
+    q: "Pertanyaan terakhir: Ceritakan dengan kata-katamu sendiri, apa yang paling kamu inginkan dalam hidup saat ini, dan apa yang menurutmu menghalangimu untuk mencapainya?",
+    choices: null // free text
+  }
+];
+
+let psychoStep = 0;
+let psychoAnswers = [];
+let psychoActive = false;
+
+function openPsycho() {
+  psychoStep = 0;
+  psychoAnswers = [];
+  psychoActive = true;
+  document.getElementById('main').style.display = 'none';
+  const pp = document.getElementById('psycho-page');
+  pp.classList.add('active');
+  if (!sidebarOpen) pp.classList.add('sidebar-closed');
+  else pp.classList.remove('sidebar-closed');
+  document.getElementById('psycho-chat-area').innerHTML = '';
+  document.getElementById('psycho-input-wrap').style.display = 'none';
+  updatePsychoProgress();
+  // intro message
+  setTimeout(() => psychoAIMsg("Halo! 👋 Selamat datang di **Tes Psikologi NeuralChat**.\n\nTes ini terdiri dari **15 pertanyaan** yang dirancang untuk membantu kamu mengenal dirimu lebih dalam. Jawab dengan jujur sesuai yang kamu rasakan — tidak ada jawaban benar atau salah.\n\nMari kita mulai! ✨", () => {
+    setTimeout(() => showPsychoQuestion(), 600);
+  }), 400);
+}
+
+function closePsycho() {
+  psychoActive = false;
+  document.getElementById('psycho-page').classList.remove('active');
+  document.getElementById('main').style.display = 'flex';
+}
+
+function updatePsychoProgress() {
+  const pct = (psychoStep / 15) * 100;
+  document.getElementById('psycho-bar').style.width = pct + '%';
+  document.getElementById('psycho-step-label').textContent = `${psychoStep} / 15`;
+}
+
+function psychoAIMsg(text, onDone) {
+  const area = document.getElementById('psycho-chat-area');
+  const wrap = document.createElement('div');
+  wrap.className = 'msg ai';
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  const avatarDiv = document.createElement('div');
+  avatarDiv.className = 'msg-avatar';
+  avatarDiv.innerHTML = `<svg viewBox="0 0 34 34" fill="none" width="34" height="34"><defs><linearGradient id="plg${Date.now()}" x1="0" y1="0" x2="34" y2="34"><stop stop-color="#22d3a0"/><stop offset="1" stop-color="#4f8ef7"/></linearGradient></defs><rect width="34" height="34" rx="17" fill="url(#plg${Date.now()})"/><circle cx="17" cy="15" r="5.5" fill="rgba(255,255,255,.9)"/><circle cx="17" cy="15" r="2.5" fill="#22d3a0"/><rect x="11" y="22" width="12" height="2" rx="1" fill="rgba(255,255,255,.7)"/><line x1="7" y1="15" x2="11" y2="15" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-linecap="round"/><line x1="23" y1="15" x2="27" y2="15" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-linecap="round"/><circle cx="7" cy="15" r="1.8" fill="rgba(255,255,255,.5)"/><circle cx="27" cy="15" r="1.8" fill="rgba(255,255,255,.5)"/></svg>`;
+  wrap.appendChild(avatarDiv);
+  wrap.appendChild(bubble);
+  area.appendChild(wrap);
+  area.scrollTop = area.scrollHeight;
+  typewriteText(bubble, text, area, onDone);
+}
+
+// Extended typewriteText that calls onDone when finished
+const _origTypewrite = typewriteText;
+function typewriteText(bubble, rawText, area, onDone) {
+  const chars = [...rawText];
+  let idx = 0, plain = '';
+  function tick() {
+    if (idx >= chars.length) {
+      bubble.innerHTML = formatText(rawText);
+      if(area) area.scrollTop = area.scrollHeight;
+      if(onDone) onDone();
+      return;
+    }
+    const batchSize = chars[idx]==='\n'?1:Math.floor(Math.random()*2)+1;
+    for(let b=0;b<batchSize&&idx<chars.length;b++) plain+=chars[idx++];
+    bubble.innerHTML='';
+    const tn=document.createElement('span'); tn.innerHTML=formatText(plain); bubble.appendChild(tn);
+    const cur=document.createElement('span'); cur.className='typewriter-cursor'; bubble.appendChild(cur);
+    if(area) area.scrollTop=area.scrollHeight;
+    const last=plain[plain.length-1];
+    let delay=14+Math.random()*12;
+    if('.!?'.includes(last)) delay=160+Math.random()*80;
+    else if(',;:'.includes(last)) delay=70+Math.random()*40;
+    else if(last==='\n') delay=50;
+    setTimeout(tick,delay);
+  }
+  setTimeout(tick,40);
+}
+
+function showPsychoQuestion() {
+  const q = PSYCHO_QUESTIONS[psychoStep];
+  const qNum = psychoStep + 1;
+  const isLast = psychoStep === 14;
+  const questionText = `**Pertanyaan ${qNum}/15**\n\n${q.q}`;
+
+  psychoAIMsg(questionText, () => {
+    if (isLast) {
+      // show text input
+      document.getElementById('psycho-input-wrap').style.display = 'block';
+      document.getElementById('psycho-text-input').focus();
+    } else {
+      // show choice buttons
+      setTimeout(() => renderChoices(q.choices), 300);
+    }
+  });
+}
+
+function renderChoices(choices) {
+  const area = document.getElementById('psycho-chat-area');
+  const wrap = document.createElement('div');
+  wrap.className = 'psycho-choices';
+  wrap.id = 'psycho-choices-current';
+  const letters = ['A','B','C','D'];
+  choices.forEach((c, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'psycho-btn';
+    btn.innerHTML = `<span class="psycho-btn-letter">${letters[i]}</span>${c}`;
+    btn.onclick = () => psychoChoose(c, btn, wrap);
+    wrap.appendChild(btn);
+  });
+  area.appendChild(wrap);
+  area.scrollTop = area.scrollHeight;
+}
+
+function psychoChoose(answer, btn, wrap) {
+  // mark selected, disable all
+  wrap.querySelectorAll('.psycho-btn').forEach(b => b.classList.add('disabled'));
+  btn.classList.add('selected');
+  btn.classList.remove('disabled');
+
+  psychoAnswers.push({ q: PSYCHO_QUESTIONS[psychoStep].q, a: answer });
+  psychoStep++;
+  updatePsychoProgress();
+
+  // Show user bubble
+  setTimeout(() => {
+    showUserBubblePsycho(answer);
+    setTimeout(() => {
+      if (psychoStep < 15) {
+        showPsychoQuestion();
+      }
+    }, 500);
+  }, 300);
+}
+
+function showUserBubblePsycho(text) {
+  const area = document.getElementById('psycho-chat-area');
+  const div = document.createElement('div');
+  div.className = 'msg user';
+  div.innerHTML = `
+    <div class="msg-avatar" style="background:var(--surface2);font-family:var(--font-head);font-weight:700;color:var(--text);font-size:.9rem">${currentUser ? currentUser.username.charAt(0).toUpperCase() : 'U'}</div>
+    <div class="msg-bubble" style="animation:msgIn .3s ease both">${formatText(text)}</div>
+  `;
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+
+function psychoSendText() {
+  const input = document.getElementById('psycho-text-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = ''; input.style.height = 'auto';
+  document.getElementById('psycho-input-wrap').style.display = 'none';
+
+  psychoAnswers.push({ q: PSYCHO_QUESTIONS[14].q, a: text });
+  psychoStep = 15;
+  updatePsychoProgress();
+  showUserBubblePsycho(text);
+
+  setTimeout(() => analyzePsycho(), 600);
+}
+
+async function analyzePsycho() {
+  const area = document.getElementById('psycho-chat-area');
+
+  // Typing loader
+  const loadWrap = document.createElement('div');
+  loadWrap.className = 'msg ai'; loadWrap.id = 'psycho-analyzing';
+  loadWrap.innerHTML = `
+    <div class="msg-avatar" style="background:linear-gradient(135deg,#22d3a0,#4f8ef7);width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem">🧠</div>
+    <div class="msg-bubble"><div class="typing-dots"><span></span><span></span><span></span></div><span style="font-size:.8rem;color:var(--text3);margin-left:6px">Menganalisis jawaban kamu...</span></div>
+  `;
+  area.appendChild(loadWrap);
+  area.scrollTop = area.scrollHeight;
+
+  const summary = psychoAnswers.map((a,i)=>`Q${i+1}: ${a.q}\nJawaban: ${a.a}`).join('\n\n');
+  const prompt = `Kamu adalah psikolog profesional yang berempati dan bijaksana. Berdasarkan 15 jawaban tes psikologi berikut, berikan analisis mendalam tentang kepribadian, karakter, kekuatan, area pengembangan, dan saran hidup yang relevan. Tulis dalam Bahasa Indonesia yang hangat dan personal. Format menggunakan bagian: 🌟 Kepribadian Utama, 💪 Kekuatan, 🌱 Area Pengembangan, 💡 Saran & Refleksi. Jawaban user:\n\n${summary}`;
+
+  let result = '';
+  try {
+    if (OPENAI_KEY && OPENAI_KEY !== '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') {
+      const res = await fetch('https://api.openai.com/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},
+        body:JSON.stringify({model:'gpt-4o',max_tokens:900,messages:[{role:'user',content:prompt}]})
+      });
+      const data = await res.json();
+      result = data.choices?.[0]?.message?.content || '';
+    }
+    if (!result) result = generateLocalAnalysis(psychoAnswers);
+  } catch(e) {
+    result = generateLocalAnalysis(psychoAnswers);
+  }
+
+  document.getElementById('psycho-analyzing')?.remove();
+
+  // Result card
+  const card = document.createElement('div');
+  card.className = 'psycho-result-card';
+  card.innerHTML = `
+    <div class="psycho-result-title">🧠 Hasil Analisis Psikologi Kamu</div>
+    <div class="psycho-result-body" id="psycho-result-text"></div>
+    <button class="psycho-restart-btn" onclick="openPsycho()">🔄 Ulangi Tes</button>
+  `;
+  area.appendChild(card);
+  area.scrollTop = area.scrollHeight;
+  typewriteText(document.getElementById('psycho-result-text'), result, area);
+}
+
+function generateLocalAnalysis(answers) {
+  const a = answers.map(x=>x.a.toLowerCase());
+  const isExtrovert = a.filter(x=>x.includes('orang')||x.includes('bersama')||x.includes('sosial')||x.includes('tim')).length > 3;
+  const isLogic = a.filter(x=>x.includes('logis')||x.includes('analisis')||x.includes('data')||x.includes('rencana')).length > 2;
+  const isEmpath = a.filter(x=>x.includes('perasaan')||x.includes('emosional')||x.includes('membantu')||x.includes('empati')).length > 2;
+
+  return `🌟 **Kepribadian Utama**\n\nBerdasarkan jawabanmu, kamu adalah pribadi yang ${isExtrovert?'ekstrover dan energik dalam berinteraksi sosial':'introver yang kaya akan dunia batin dan reflektif'}. Kamu cenderung ${isLogic?'berpikir analitis dan sistematis':'mengutamakan perasaan dan nilai-nilai personal'} dalam menghadapi kehidupan.\n\n💪 **Kekuatan**\n\nKamu memiliki kemampuan ${isEmpath?'empati yang kuat dan kepekaan terhadap orang lain':'fokus dan determinasi yang tinggi dalam mengejar tujuan'}. Ini adalah aset berharga yang membuat kamu unik dan disukai orang sekitar.\n\n🌱 **Area Pengembangan**\n\nUntuk tumbuh lebih jauh, coba ${isLogic?'lebih membuka diri terhadap dimensi emosional dan intuisi':'mengembangkan pemikiran analitis untuk keputusan yang lebih terstruktur'}. Keseimbangan antara hati dan pikiran adalah kunci.\n\n💡 **Saran & Refleksi**\n\nKamu berada di jalur yang tepat. Teruslah mengenal dirimu lebih dalam — kesadaran diri adalah fondasi semua pertumbuhan. Percayai prosesmu, dan ingat bahwa setiap langkah kecil menuju versi terbaik dirimu adalah sebuah kemenangan. ✨\n\n*Catatan: Analisis ini bersifat umum dan untuk keperluan refleksi diri. Untuk konsultasi lebih mendalam, disarankan berkonsultasi dengan psikolog profesional.*`;
+}
+
+// ══════════════════════════════════════════
+// FLOATING AD & DONATE
+// ══════════════════════════════════════════
+function showFloatingElements() {
+  document.getElementById('float-ad').style.display = 'block';
+  document.getElementById('donate-bubble').style.display = 'flex';
+  // Show ad after 4 seconds
+  setTimeout(() => {
+    const ad = document.getElementById('float-ad');
+    ad.style.animation = 'adSlideIn .5s cubic-bezier(.22,1,.36,1) both';
+  }, 4000);
+}
+
+function openDonate() {
+  const popup = document.getElementById('donate-popup');
+  popup.classList.add('open');
+  document.getElementById('donate-sent').classList.remove('show');
+  document.getElementById('donate-form').style.display = 'flex';
+}
+function closeDonate() {
+  document.getElementById('donate-popup').classList.remove('open');
+}
+function sendDonateMsg() {
+  const name = document.getElementById('donate-name').value.trim() || 'Pengguna Anonim';
+  const msg = document.getElementById('donate-msg-input').value.trim() || '-';
+  // Simulate sending (in production, hook to backend/email)
+  console.log(`[Donasi] Dari: ${name} | Pesan: ${msg}`);
+  document.getElementById('donate-form').style.display = 'none';
+  document.getElementById('donate-sent').classList.add('show');
+  setTimeout(() => closeDonate(), 3500);
+}
+
+// Close donate popup on outside click
+document.addEventListener('click', e => {
+  const popup = document.getElementById('donate-popup');
+  const bubble = document.getElementById('donate-bubble');
+  if (popup && bubble && !popup.contains(e.target) && !bubble.contains(e.target)) {
+    popup.classList.remove('open');
+  }
+});
+</script>
+</body>
+</html>
